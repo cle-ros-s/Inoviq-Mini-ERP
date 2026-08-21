@@ -1,0 +1,298 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  auditLogs AuditLog[]
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  customerCode    String   @unique
+  companyName     String
+  name            String?
+  email           String
+  phone           String
+  address         String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  enquiries       Enquiry[]
+  quotations      Quotation[]
+  salesOrders     SalesOrder[]
+  deliveries      DeliveryOrder[]
+  invoices        Invoice[]
+}
+
+model Supplier {
+  id              String   @id @default(uuid())
+  supplierCode    String   @unique
+  companyName     String
+  name            String?
+  email           String
+  phone           String
+  address         String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrders  PurchaseOrder[]
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  name      String
+  
+  products  Product[]
+}
+
+model Product {
+  id                  String   @id @default(uuid())
+  sku                 String   @unique
+  name                String
+  description         String?
+  categoryId          String
+  category            Category @relation(fields: [categoryId], references: [id])
+  unitOfMeasure       String   @default("PCS")
+  salesPrice          Decimal  @default(0)
+  costPrice           Decimal  @default(0)
+  reorderLevel        Int      @default(0)
+  procurementStrategy String?
+  procurementType     String?
+  vendorId            String?
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  bom                 BOM?     @relation("ProductBOM")
+  bomItems            BOMItem[]
+  inventory           InventoryTransaction[]
+  quotationItems      QuotationItem[]
+  salesOrderItems     SalesOrderItem[]
+  poItems             PurchaseOrderItem[]
+  prodOrders          ProductionOrder[]
+  qualityInspections  QualityInspection[]
+}
+
+model BOM {
+  id             String     @id @default(uuid())
+  bomNumber      String     @unique
+  productId      String     @unique
+  product        Product    @relation("ProductBOM", fields: [productId], references: [id])
+  version        String     @default("1.0")
+  status         String     @default("ACTIVE")
+  quantityProduced Int      @default(1)
+  notes          String?
+  
+  items          BOMItem[]
+  productionOrders ProductionOrder[]
+}
+
+model BOMItem {
+  id             String   @id @default(uuid())
+  bomId          String
+  bom            BOM      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  materialId     String
+  material       Product  @relation(fields: [materialId], references: [id])
+  quantity       Decimal
+  unitOfMeasure  String
+}
+
+model Enquiry {
+  id            String   @id @default(uuid())
+  enquiryNumber String   @unique
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  status        String   @default("NEW")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Quotation {
+  id              String   @id @default(uuid())
+  quotationNumber String   @unique
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  status          String   @default("DRAFT")
+  subtotal        Decimal  @default(0)
+  discount        Decimal  @default(0)
+  tax             Decimal  @default(0)
+  total           Decimal  @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           QuotationItem[]
+  salesOrders     SalesOrder[]
+}
+
+model QuotationItem {
+  id          String    @id @default(uuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal
+  lineTotal   Decimal
+}
+
+model SalesOrder {
+  id              String   @id @default(uuid())
+  orderNumber     String   @unique
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  quotationId     String?
+  quotation       Quotation? @relation(fields: [quotationId], references: [id])
+  status          String   @default("DRAFT")
+  subtotal        Decimal  @default(0)
+  total           Decimal  @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           SalesOrderItem[]
+  deliveries      DeliveryOrder[]
+  invoices        Invoice[]
+}
+
+model SalesOrderItem {
+  id           String     @id @default(uuid())
+  salesOrderId String
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Int
+  unitPrice    Decimal
+  lineTotal    Decimal
+}
+
+model PurchaseOrder {
+  id            String   @id @default(uuid())
+  poNumber      String   @unique
+  supplierId    String
+  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  status        String   @default("DRAFT")
+  total         Decimal  @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items         PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id            String         @id @default(uuid())
+  poId          String
+  purchaseOrder PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id])
+  quantity      Int
+  unitPrice     Decimal
+  lineTotal     Decimal
+}
+
+model InventoryTransaction {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  transactionType String   // RECEIPT, ISSUE, ADJUSTMENT, PRODUCTION_CONSUMPTION, PRODUCTION_OUTPUT
+  referenceType   String?
+  referenceId     String?
+  timestamp       DateTime @default(now())
+}
+
+model ProductionOrder {
+  id                 String   @id @default(uuid())
+  productionNumber   String   @unique
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  bomId              String
+  bom                BOM      @relation(fields: [bomId], references: [id])
+  plannedQuantity    Int
+  producedQuantity   Int      @default(0)
+  status             String   @default("PLANNED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  qualityInspections QualityInspection[]
+}
+
+model QualityInspection {
+  id                 String   @id @default(uuid())
+  inspectionNumber   String   @unique
+  productionOrderId  String
+  productionOrder    ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  inspectedQuantity  Int
+  passedQuantity     Int      @default(0)
+  failedQuantity     Int      @default(0)
+  status             String   @default("PENDING")
+  remarks            String?
+  createdAt          DateTime @default(now())
+}
+
+model DeliveryOrder {
+  id              String   @id @default(uuid())
+  deliveryNumber  String   @unique
+  salesOrderId    String
+  salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  status          String   @default("PLANNED")
+  scheduledDate   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  invoiceNumber   String   @unique
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  salesOrderId    String
+  salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id])
+  status          String   @default("DRAFT")
+  total           Decimal  @default(0)
+  balanceDue      Decimal  @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payments        Payment[]
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  paymentNumber String   @unique
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Decimal
+  paymentMethod String
+  paymentDate   DateTime @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String
+  entity      String
+  entityId    String
+  timestamp   DateTime @default(now())
+}

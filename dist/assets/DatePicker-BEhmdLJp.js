@@ -1,0 +1,1 @@
+import{j as x}from"./index-CofcP5kd.js";import{I as j}from"./Input-Ck6oHSXl.js";const f=({label:t,name:r,value:e,onChange:o,error:s,required:p,disabled:a,min:m,max:i,...n})=>x.jsx(j,{type:"date",label:t,name:r,value:e,onChange:o,error:s,required:p,disabled:a,min:m,max:i,...n});export{f as D};

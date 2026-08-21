@@ -1,0 +1,1 @@
+import{g as a,m as n,q as s,n as o,o as i,v as c}from"./index-CofcP5kd.js";const t="deliveries",l=()=>a(t),g=e=>n(t,e),u=e=>{const r={...e,id:o("DEL"),createdAt:new Date().toISOString()};return i(t,r)},D=(e,r)=>s(t,e,{...r,updatedAt:new Date().toISOString()}),I=e=>c(t,e);export{g as a,u as c,I as d,l as g,D as u};
