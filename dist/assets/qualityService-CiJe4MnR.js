@@ -1,1 +1,0 @@
-import{m as a}from"./index-A2rwtCid.js";const n=async()=>{try{return(await a.get("/quality")).data||[]}catch{return[]}},c=async t=>{try{return(await a.get(`/quality/${t}`)).data}catch{return null}},o=async t=>(await a.post("/quality",t)).data,u=async(t,s)=>(await a.put(`/quality/${t}/result`,s)).data,i=async t=>({success:!0});export{c as a,o as c,i as d,n as g,u};

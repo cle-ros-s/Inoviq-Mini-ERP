@@ -1,1 +1,0 @@
-import{m as s}from"./index-A2rwtCid.js";async function r(t={}){return(await s.get("/boms")).data||[]}async function e(t){return(await s.get(`/boms/${t}`)).data}const n=e;async function c(t){return(await s.post("/boms",t)).data}export{n as a,c,r as g};
