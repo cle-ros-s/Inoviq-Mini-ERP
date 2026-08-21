@@ -5,11 +5,13 @@ import * as purchaseService from '../../services/purchaseService.js';
 import * as productService from '../../services/productService.js';
 import { api } from '../../services/apiClient.js';
 import { useToast } from '../../hooks/useToast.js';
+import { useRefresh } from '../../hooks/useRefresh.js';
 import { Plus, Trash2, ShoppingCart, AlertCircle, RefreshCw, Building2, Package } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters.js';
 
 export default function PurchaseForm() {
   const { user } = useAuth();
+  const { triggerRefresh } = useRefresh();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
@@ -186,6 +188,7 @@ export default function PurchaseForm() {
 
       const po = await purchaseService.createPurchaseOrder(payload);
       showSuccess('Purchase Order created successfully in PostgreSQL!');
+      triggerRefresh();
       navigate(`/purchase/${po.id || po.poNumber || ''}`);
     } catch (err) {
       console.error('PO creation error:', err);

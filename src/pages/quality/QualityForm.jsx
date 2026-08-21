@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Save, X, CheckCircle } from 'lucide-react';
 import Input from '../../components/ui/Input';
 import { getInspectionById, createInspection, updateInspection } from '../../services/qualityService';
+import { useRefresh } from '../../hooks/useRefresh.js';
 
 export default function QualityForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { triggerRefresh } = useRefresh();
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({
@@ -42,6 +44,7 @@ export default function QualityForm() {
     } else {
       await createInspection(formData);
     }
+    triggerRefresh();
     navigate('/quality');
   };
 

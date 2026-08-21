@@ -23,6 +23,11 @@ export const createInvoice = async (invoiceData) => {
   return res.data;
 };
 
+export const updateInvoice = async (id, invoiceData) => {
+  const res = await api.put(`/invoices/${id}`, invoiceData);
+  return res.data;
+};
+
 export const recordPayment = async (id, paymentAmount, paymentMethod = 'BANK_TRANSFER') => {
   const res = await api.post(`/invoices/${id}/payment`, { amount: paymentAmount, paymentMethod });
   return res.data;

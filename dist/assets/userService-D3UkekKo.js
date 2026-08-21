@@ -1,1 +1,0 @@
-import{g as n,n as a,o,p as c,A as i}from"./index-CofcP5kd.js";function d(){return n("users")}function g(r,s){const e=a("user"),t={...r,id:e,active:!0,createdAt:new Date().toISOString()};return o("users",t),c({action:i.USER_CREATED,entity:"User",entityId:e,description:"User created",userId:s}),t}export{g as c,d as g};

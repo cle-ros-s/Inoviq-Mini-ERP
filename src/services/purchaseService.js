@@ -11,6 +11,8 @@ export async function getPurchaseOrder(id) {
   return res.data;
 }
 
+export const getPurchaseOrderById = getPurchaseOrder;
+
 export async function createPurchaseOrder(data) {
   const res = await api.post('/purchase-orders', data);
   return res.data;

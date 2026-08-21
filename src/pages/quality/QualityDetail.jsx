@@ -8,14 +8,24 @@ const QualityDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [inspection, setInspection] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const data = getInspectionById(id);
-    if (data) {
-      setInspection(data);
+    async function loadData() {
+      setLoading(true);
+      try {
+        const data = await getInspectionById(id);
+        setInspection(data);
+      } catch (err) {
+        console.error('Failed to load quality inspection', err);
+      } finally {
+        setLoading(false);
+      }
     }
+    loadData();
   }, [id]);
 
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading inspection...</div>;
   if (!inspection) {
     return (
       <div className="p-6">
@@ -30,12 +40,9 @@ const QualityDetail = () => {
     );
   }
 
-  const getResultType = (result) => {
-    if (result === 'Passed') return 'success';
-    if (result === 'Failed') return 'danger';
-    if (result === 'Needs Rework') return 'warning';
-    return 'default';
-  };
+  const inspId = inspection.inspectionNumber || inspection.id;
+  const prodName = inspection.product?.name || inspection.product || 'Item';
+  const inspectorName = inspection.inspector?.name || inspection.inspector || 'Inspector';
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -47,49 +54,33 @@ const QualityDetail = () => {
           >
             <ArrowLeft size={24} />
           </button>
-          <h1 className="text-2xl font-bold">Inspection: {inspection.id}</h1>
-          <StatusBadge status={inspection.result} type={getResultType(inspection.result)} />
+          <h1 className="text-2xl font-bold">Inspection: {inspId}</h1>
+          <StatusBadge status={inspection.result || inspection.status || 'PASSED'} />
         </div>
-        <button
-          onClick={() => navigate(`/quality/${id}/edit`)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          <Edit size={18} /> Edit
-        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6 grid grid-cols-2 gap-y-6 gap-x-8">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Product</h3>
-            <p className="mt-1 text-lg">{inspection.product}</p>
+            <p className="mt-1 text-lg font-semibold">{prodName}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Production Order</h3>
-            <p className="mt-1 text-lg">{inspection.productionOrder}</p>
+            <p className="mt-1 text-lg">{inspection.productionOrderId || inspection.productionOrder || '—'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Inspector</h3>
-            <p className="mt-1 text-lg">{inspection.inspector}</p>
+            <p className="mt-1 text-lg">{inspectorName}</p>
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Date</h3>
-            <p className="mt-1 text-lg">{inspection.date}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Status</h3>
-            <p className="mt-1 text-lg">{inspection.status}</p>
+            <h3 className="text-sm font-medium text-gray-500">Result / Status</h3>
+            <p className="mt-1 text-lg font-bold">{inspection.result || inspection.status || 'PASSED'}</p>
           </div>
           <div className="col-span-2">
-            <h3 className="text-sm font-medium text-gray-500">Defects</h3>
+            <h3 className="text-sm font-medium text-gray-500">Defects / Checklist</h3>
             <p className="mt-1 bg-gray-50 p-3 rounded border border-gray-100 min-h-[3rem]">
-              {inspection.defects || 'No defects recorded.'}
-            </p>
-          </div>
-          <div className="col-span-2">
-            <h3 className="text-sm font-medium text-gray-500">Notes</h3>
-            <p className="mt-1 bg-gray-50 p-3 rounded border border-gray-100 min-h-[3rem]">
-              {inspection.notes || 'No additional notes.'}
+              {inspection.defects || inspection.notes || 'No defects recorded.'}
             </p>
           </div>
         </div>

@@ -1,0 +1,1 @@
+import{r}from"./index-A2rwtCid.js";function f(){const[t,n]=r.useState(null);return{confirm:r.useCallback(e=>new Promise(o=>{n({...e,onConfirm:()=>{n(null),o(!0)},onClose:()=>{n(null),o(!1)}})}),[]),config:t}}export{f as u};

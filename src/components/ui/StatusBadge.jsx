@@ -26,19 +26,31 @@ const STATUS_MAP = {
   'planned': { label: 'Planned', icon: Clock, colorClass: 'status-info' },
   'passed': { label: 'Passed', icon: CheckCircle, colorClass: 'status-success' },
   'failed': { label: 'Failed', icon: XCircle, colorClass: 'status-error' },
+  'in_transit': { label: 'In Transit', icon: Truck, colorClass: 'status-info' },
+  'in transit': { label: 'In Transit', icon: Truck, colorClass: 'status-info' },
+  'delivered': { label: 'Delivered', icon: CheckCircle, colorClass: 'status-success' },
+  'unpaid': { label: 'Unpaid', icon: Clock, colorClass: 'status-warning' },
+  'paid': { label: 'Paid', icon: CheckCircle, colorClass: 'status-success' }
 };
 
 const StatusBadge = ({ status, variant }) => {
-  const norm = String(status || '').toLowerCase().trim();
-  const mapping = STATUS_MAP[norm] || { label: status || 'Unknown', icon: Circle, colorClass: 'status-gray' };
+  let resolvedStatus = status;
+
+  // Safely extract string if status is passed as an object
+  if (typeof status === 'object' && status !== null) {
+    resolvedStatus = status.status || status.result || status.state || status.label || status.name || 'UNKNOWN';
+  }
+
+  const norm = String(resolvedStatus || '').toLowerCase().trim();
+  const mapping = STATUS_MAP[norm] || { label: String(resolvedStatus || 'Unknown'), icon: Circle, colorClass: 'status-gray' };
   const Icon = mapping.icon;
   const colorClass = variant ? `status-${variant}` : mapping.colorClass;
-  const displayLabel = mapping.label || status;
+  const displayLabel = typeof mapping.label === 'object' ? String(mapping.label.status || 'Unknown') : mapping.label;
 
   return (
     <span className={`status-badge ${colorClass}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
       <Icon size={13} />
-      <span>{displayLabel}</span>
+      <span>{String(displayLabel)}</span>
     </span>
   );
 };

@@ -29,6 +29,8 @@ const ManufacturingChart = ({ data = [] }) => {
             nameKey="status"
             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
             labelLine={false}
+            isAnimationActive={true}
+            animationDuration={600}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[entry.status] || '#8B5E3C'} />

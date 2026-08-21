@@ -4,10 +4,12 @@ import { Save, ArrowLeft, Truck } from 'lucide-react';
 import Input from '../../components/ui/Input';
 import Textarea from '../../components/ui/Textarea';
 import { getDeliveryById, createDelivery, updateDelivery } from '../../services/deliveryService';
+import { useRefresh } from '../../hooks/useRefresh.js';
 
 export default function DeliveryForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { triggerRefresh } = useRefresh();
   const isEditMode = !!id;
 
   const [formData, setFormData] = useState({
@@ -52,6 +54,7 @@ export default function DeliveryForm() {
     } else {
       await createDelivery(formData);
     }
+    triggerRefresh();
     navigate('/delivery');
   };
 

@@ -11,6 +11,8 @@ export async function getManufacturingOrder(id) {
   return res.data;
 }
 
+export const getManufacturingOrderById = getManufacturingOrder;
+
 export async function createManufacturingOrder(data) {
   const res = await api.post('/production-orders', data);
   return res.data;

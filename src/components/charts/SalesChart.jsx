@@ -19,8 +19,8 @@ const SalesChart = ({ data = [] }) => {
             cursor={{ stroke: '#C8BDB0', strokeWidth: 1, strokeDasharray: '3 3' }}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
-          <Line yAxisId="left" type="monotone" dataKey="orders" name="Orders Count" stroke="#8B5E3C" strokeWidth={3} dot={{ r: 4, fill: '#8B5E3C', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-          <Line yAxisId="right" type="monotone" dataKey="value" name="Revenue (₹)" stroke="#D4A853" strokeWidth={3} dot={{ r: 4, fill: '#D4A853', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+          <Line yAxisId="left" type="monotone" dataKey="orders" name="Orders Count" stroke="#8B5E3C" strokeWidth={3} dot={{ r: 4, fill: '#8B5E3C', strokeWidth: 0 }} activeDot={{ r: 6 }} isAnimationActive={true} animationDuration={600} />
+          <Line yAxisId="right" type="monotone" dataKey="value" name="Revenue (₹)" stroke="#D4A853" strokeWidth={3} dot={{ r: 4, fill: '#D4A853', strokeWidth: 0 }} activeDot={{ r: 6 }} isAnimationActive={true} animationDuration={600} />
         </LineChart>
       </ResponsiveContainer>
     </div>

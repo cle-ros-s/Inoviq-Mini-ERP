@@ -1,1 +1,0 @@
-import{g as s,m as o,q as a,n as c,o as r,v as I}from"./index-CofcP5kd.js";const e="qualityInspections",p=()=>s(e),u=t=>o(e,t),d=t=>{const n={...t,id:c("auditLog")};return r(e,n)},g=(t,n)=>a(e,t,n),m=t=>I(e,t);export{u as a,d as c,m as d,p as g,g as u};

@@ -5,11 +5,13 @@ import * as salesService from '../../services/salesService.js';
 import * as productService from '../../services/productService.js';
 import { api } from '../../services/apiClient.js';
 import { useToast } from '../../hooks/useToast.js';
+import { useRefresh } from '../../hooks/useRefresh.js';
 import { Trash2, Plus, Users, Package } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters.js';
 
 export default function SalesForm() {
   const { currentUser } = useAuth();
+  const { triggerRefresh } = useRefresh();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
@@ -135,6 +137,7 @@ export default function SalesForm() {
         }))
       });
       showSuccess('Sales Order created successfully in PostgreSQL!');
+      triggerRefresh();
       navigate(`/sales/${so.id || so.orderNumber || ''}`);
     } catch (err) {
       showError(err.message || 'Creation failed');

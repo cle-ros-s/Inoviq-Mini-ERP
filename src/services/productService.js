@@ -11,6 +11,8 @@ export async function getProduct(id) {
   return res.data;
 }
 
+export const getProductById = getProduct;
+
 export async function getProductsWithInventory(filters = {}) {
   const query = new URLSearchParams(filters).toString();
   const res = await api.get(`/products${query ? `?${query}` : ''}`);

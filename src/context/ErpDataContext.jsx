@@ -1,59 +1,98 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { io } from 'socket.io-client';
+import { getSocket, subscribeToErpUpdates } from '../services/socket.js';
 
 const ErpDataContext = createContext(null);
 
-// Initialize Socket.io connection (update URL when your backend is ready)
-const socket = io('http://localhost:3000', {
-  autoConnect: true,
-  reconnection: true
-});
-
 /**
- * ErpDataContext provides a reactive "refresh trigger" pattern.
- * Components (like Dashboard graphs) subscribe to this counter to know when to re-fetch from services.
+ * ErpDataProvider provides a reactive real-time "refresh trigger" pattern.
+ * Components (like role Dashboards) subscribe to this counter to re-fetch from PostgreSQL.
  */
 export function ErpDataProvider({ children }) {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(Date.now());
+  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(true);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(5); // default 5s
+  const [secondsUntilNextRefresh, setSecondsUntilNextRefresh] = useState(5);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   const triggerRefresh = useCallback(() => {
     setRefreshCounter(c => c + 1);
     setLastRefreshedAt(Date.now());
-  }, []);
+    setSecondsUntilNextRefresh(autoRefreshInterval);
+  }, [autoRefreshInterval]);
 
-  // 1. Socket.io Real-Time Updates Listener
+  // Socket.IO Subscription
   useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Socket.io connected for real-time dashboard updates');
-    });
+    const socket = getSocket();
 
-    // When backend emits that data was entered, trigger a global graph refresh
-    socket.on('data_updated', () => {
-      console.log('Socket.io received data_updated event, refreshing graphs!');
+    const handleConnect = () => {
+      console.log('⚡ Socket.IO connected for real-time dashboard updates');
+      setIsSocketConnected(true);
+    };
+
+    const handleDisconnect = () => {
+      console.log('⚡ Socket.IO disconnected');
+      setIsSocketConnected(false);
+    };
+
+    const handleUpdate = (payload) => {
+      console.log('⚡ Real-time Socket.IO update received:', payload);
       triggerRefresh();
-    });
+    };
+
+    if (socket.connected) {
+      setIsSocketConnected(true);
+    }
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('data_updated', handleUpdate);
+    socket.on('erp:update', handleUpdate);
+    socket.on('dashboard:refresh', handleUpdate);
+
+    const unsubscribe = subscribeToErpUpdates(handleUpdate);
 
     return () => {
-      socket.off('connect');
-      socket.off('data_updated');
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('data_updated', handleUpdate);
+      socket.off('erp:update', handleUpdate);
+      socket.off('dashboard:refresh', handleUpdate);
+      unsubscribe();
     };
   }, [triggerRefresh]);
 
-  // 2. Cross-Tab LocalStorage Real-Time Updates (Fallback/Local mode)
-  // This simulates the socket real-time experience locally across browser tabs right now!
+  // Auto-polling Countdown Timer
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key && e.key.startsWith('sfw:')) {
-        triggerRefresh();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [triggerRefresh]);
+    if (!isAutoRefreshEnabled || autoRefreshInterval <= 0) return;
+
+    setSecondsUntilNextRefresh(autoRefreshInterval);
+
+    const timer = setInterval(() => {
+      setSecondsUntilNextRefresh(prev => {
+        if (prev <= 1) {
+          triggerRefresh();
+          return autoRefreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isAutoRefreshEnabled, autoRefreshInterval, triggerRefresh]);
 
   return (
-    <ErpDataContext.Provider value={{ refreshCounter, lastRefreshedAt, triggerRefresh, socket }}>
+    <ErpDataContext.Provider value={{
+      refreshCounter,
+      lastRefreshedAt,
+      triggerRefresh,
+      isAutoRefreshEnabled,
+      setIsAutoRefreshEnabled,
+      autoRefreshInterval,
+      setAutoRefreshInterval,
+      secondsUntilNextRefresh,
+      isSocketConnected
+    }}>
       {children}
     </ErpDataContext.Provider>
   );

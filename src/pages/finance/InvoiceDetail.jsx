@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card.jsx';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import Input from '../../components/ui/Input.jsx';
+import { formatCurrency, formatDate } from '../../utils/formatters.js';
 import { ArrowLeft, DollarSign, XCircle } from 'lucide-react';
 
 export default function InvoiceDetail() {
@@ -21,7 +22,8 @@ export default function InvoiceDetail() {
 
   const loadInvoice = async () => {
     try {
-      const data = await getInvoiceById(id);
+      const res = await getInvoiceById(id);
+      const data = res?.data || res;
       setInvoice(data);
     } catch (error) {
       console.error('Error loading invoice', error);
@@ -33,7 +35,7 @@ export default function InvoiceDetail() {
   const handleCancelInvoice = async () => {
     if (window.confirm('Are you sure you want to cancel this invoice?')) {
       try {
-        await updateInvoice(id, { status: 'Cancelled' });
+        await updateInvoice(id, { status: 'CANCELLED' });
         loadInvoice();
       } catch (error) {
         console.error('Error cancelling invoice', error);
@@ -44,7 +46,7 @@ export default function InvoiceDetail() {
   const handleRecordPayment = async (e) => {
     e.preventDefault();
     try {
-      await recordPayment(id, paymentAmount);
+      await recordPayment(id, parseFloat(paymentAmount));
       setPaymentModalOpen(false);
       setPaymentAmount('');
       loadInvoice();
@@ -53,69 +55,80 @@ export default function InvoiceDetail() {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!invoice) return <div>Invoice not found</div>;
+  if (loading) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Loading invoice...</div>;
+  if (!invoice) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Invoice not found</div>;
+
+  const invNum = invoice.invoiceNumber || invoice.id;
+  const customerName = invoice.customer?.companyName || invoice.customer?.name || invoice.customer || 'Customer';
+  const soNum = invoice.salesOrder?.orderNumber || invoice.salesOrder?.id || invoice.salesOrder || '—';
+  const totalAmount = parseFloat(invoice.amount || 0);
+  const paidAmount = parseFloat(invoice.paidAmount || 0);
+  const balance = Math.max(0, totalAmount - paidAmount);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="header-title">
-          <button className="btn btn-icon" onClick={() => navigate('/finance/invoices')}>
-            <ArrowLeft size={20} />
+    <div className="page-container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        <div>
+          <button
+            onClick={() => navigate('/finance')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}
+          >
+            <ArrowLeft size={16} /> Back to Finance & Invoices
           </button>
-          <h1>Invoice {invoice.id}</h1>
-          <StatusBadge status={invoice.status} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
+              {invNum}
+            </h1>
+            <StatusBadge status={invoice.status || 'UNPAID'} />
+          </div>
+          <p style={{ fontSize: '13px', color: 'var(--color-gray-500)', margin: '4px 0 0 0' }}>
+            Created on {formatDate(invoice.createdAt)}
+          </p>
         </div>
-        <div className="header-actions">
-          {invoice.status !== 'Cancelled' && invoice.balance > 0 && (
-            <button className="btn btn-primary" onClick={() => setPaymentModalOpen(true)}>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {invoice.status !== 'CANCELLED' && invoice.status !== 'PAID' && balance > 0 && (
+            <button className="btn btn-primary" onClick={() => setPaymentModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <DollarSign size={16} /> Record Payment
-            </button>
-          )}
-          {invoice.status !== 'Cancelled' && invoice.status !== 'Paid' && (
-            <button className="btn btn-danger" onClick={handleCancelInvoice}>
-              <XCircle size={16} /> Cancel Invoice
             </button>
           )}
         </div>
       </div>
 
-      <div className="page-content">
-        <div className="grid-2-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <Card title="Invoice Details">
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Customer</span>
-              <span className="detail-value">{invoice.customer}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        <Card title="Invoice Information">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Customer:</span>
+              <span style={{ fontWeight: 700 }}>{customerName}</span>
             </div>
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Sales Order</span>
-              <span className="detail-value">{invoice.salesOrder || '-'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Sales Order:</span>
+              <span style={{ fontWeight: 600 }}>{soNum}</span>
             </div>
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Due Date</span>
-              <span className="detail-value">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : '-'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Due Date:</span>
+              <span>{formatDate(invoice.dueDate)}</span>
             </div>
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Notes</span>
-              <span className="detail-value">{invoice.notes || '-'}</span>
+          </div>
+        </Card>
+        
+        <Card title="Financial Summary">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Total Invoice Amount:</span>
+              <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--color-primary-dark)' }}>{formatCurrency(totalAmount)}</span>
             </div>
-          </Card>
-          
-          <Card title="Financial Summary">
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Total Amount</span>
-              <span className="detail-value">${parseFloat(invoice.amount).toFixed(2)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Amount Paid:</span>
+              <span style={{ fontWeight: 600, color: 'var(--color-success)' }}>{formatCurrency(paidAmount)}</span>
             </div>
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Amount Paid</span>
-              <span className="detail-value text-success">${parseFloat(invoice.paidAmount || 0).toFixed(2)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border)', paddingTop: '10px' }}>
+              <span style={{ color: 'var(--color-gray-600)', fontWeight: 600 }}>Remaining Balance Due:</span>
+              <span style={{ fontWeight: 700, fontSize: '16px', color: balance > 0 ? 'var(--color-error)' : 'var(--color-success)' }}>{formatCurrency(balance)}</span>
             </div>
-            <div className="detail-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span className="detail-label font-bold">Balance Due</span>
-              <span className="detail-value text-danger">${parseFloat(invoice.balance || 0).toFixed(2)}</span>
-            </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
 
       {paymentModalOpen && (
@@ -126,13 +139,13 @@ export default function InvoiceDetail() {
         >
           <form onSubmit={handleRecordPayment}>
             <div style={{ marginBottom: '1rem' }}>
-              <p>Current Balance: <strong>${parseFloat(invoice.balance).toFixed(2)}</strong></p>
+              <p>Current Remaining Balance: <strong>{formatCurrency(balance)}</strong></p>
             </div>
             <Input
-              label="Payment Amount"
+              label="Payment Amount (₹)"
               type="number"
               step="0.01"
-              max={invoice.balance}
+              max={balance}
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               required

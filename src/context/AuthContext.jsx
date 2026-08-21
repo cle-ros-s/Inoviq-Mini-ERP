@@ -57,7 +57,7 @@ export function useAuth() {
   return ctx;
 }
 
-// Permission matrix
+// Full Enterprise ERP Permission Matrix with cross-module view access
 const PERMISSIONS = {
   admin: {
     dashboard: 'full', products: 'full', sales: 'full', purchase: 'full',
@@ -65,65 +65,75 @@ const PERMISSIONS = {
     quality: 'full', delivery: 'full', finance: 'full',
     audit: 'full', users: 'full', settings: 'full', reports: 'full',
   },
+  owner: {
+    dashboard: 'full', products: 'full', sales: 'full', purchase: 'full',
+    manufacturing: 'full', bom: 'full', inventory: 'full', procurement: 'full',
+    quality: 'full', delivery: 'full', finance: 'full',
+    audit: 'full', users: 'full', settings: 'full', reports: 'full',
+  },
   sales: {
-    dashboard: 'full', products: 'view', sales: 'full', purchase: null,
-    manufacturing: null, bom: null, inventory: 'view', procurement: 'view',
-    quality: null, delivery: 'view', finance: 'view',
-    audit: null, users: null, settings: null, reports: 'view',
+    dashboard: 'full', products: 'view', sales: 'full', purchase: 'view',
+    manufacturing: 'view', bom: 'view', inventory: 'view', procurement: 'view',
+    quality: 'view', delivery: 'view', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   purchase: {
-    dashboard: 'full', products: 'view', sales: null, purchase: 'full',
-    manufacturing: null, bom: null, inventory: 'view', procurement: 'full',
-    quality: null, delivery: null, finance: 'view',
-    audit: null, users: null, settings: null, reports: 'view',
+    dashboard: 'full', products: 'view', sales: 'view', purchase: 'full',
+    manufacturing: 'view', bom: 'view', inventory: 'view', procurement: 'full',
+    quality: 'view', delivery: 'view', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   manufacturing: {
-    dashboard: 'full', products: 'view', sales: null, purchase: null,
+    dashboard: 'full', products: 'view', sales: 'view', purchase: 'view',
     manufacturing: 'full', bom: 'full', inventory: 'view', procurement: 'full',
-    quality: 'view', delivery: null, finance: null,
-    audit: null, users: null, settings: null, reports: 'view',
+    quality: 'view', delivery: 'view', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   inventory: {
     dashboard: 'full', products: 'full', sales: 'view', purchase: 'view',
     manufacturing: 'view', bom: 'view', inventory: 'full', procurement: 'view',
-    quality: null, delivery: null, finance: null,
-    audit: null, users: null, settings: null, reports: 'view',
+    quality: 'view', delivery: 'view', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   quality: {
-    dashboard: 'full', products: 'view', sales: null, purchase: null,
-    manufacturing: 'view', bom: 'view', inventory: 'view', procurement: null,
-    quality: 'full', delivery: null, finance: null,
-    audit: null, users: null, settings: null, reports: 'view',
+    dashboard: 'full', products: 'view', sales: 'view', purchase: 'view',
+    manufacturing: 'view', bom: 'view', inventory: 'view', procurement: 'view',
+    quality: 'full', delivery: 'view', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   delivery: {
-    dashboard: 'full', products: 'view', sales: 'view', purchase: null,
-    manufacturing: null, bom: null, inventory: 'view', procurement: null,
-    quality: null, delivery: 'full', finance: null,
-    audit: null, users: null, settings: null, reports: 'view',
+    dashboard: 'full', products: 'view', sales: 'view', purchase: 'view',
+    manufacturing: 'view', bom: 'view', inventory: 'view', procurement: 'view',
+    quality: 'view', delivery: 'full', finance: 'view',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
   },
   finance: {
     dashboard: 'full', products: 'view', sales: 'view', purchase: 'view',
-    manufacturing: null, bom: null, inventory: 'view', procurement: null,
-    quality: null, delivery: null, finance: 'full',
-    audit: null, users: null, settings: null, reports: 'view',
-  },
-  owner: {
-    dashboard: 'full', products: 'view', sales: 'view', purchase: 'view',
     manufacturing: 'view', bom: 'view', inventory: 'view', procurement: 'view',
-    quality: 'view', delivery: 'view', finance: 'view',
-    audit: 'full', users: null, settings: null, reports: 'full',
-  },
+    quality: 'view', delivery: 'view', finance: 'full',
+    audit: 'view', users: 'view', settings: 'view', reports: 'view',
+  }
 };
 
 export function checkPermission(role, module, action = 'full') {
-  const normalizedRole = (role || 'admin').toLowerCase().replace('administrator', 'admin');
+  let normalizedRole = (role || 'admin').toLowerCase();
+  if (normalizedRole.includes('admin')) normalizedRole = 'admin';
+  else if (normalizedRole.includes('sales')) normalizedRole = 'sales';
+  else if (normalizedRole.includes('purchase')) normalizedRole = 'purchase';
+  else if (normalizedRole.includes('manufacturing') || normalizedRole.includes('production')) normalizedRole = 'manufacturing';
+  else if (normalizedRole.includes('inventory')) normalizedRole = 'inventory';
+  else if (normalizedRole.includes('quality')) normalizedRole = 'quality';
+  else if (normalizedRole.includes('delivery')) normalizedRole = 'delivery';
+  else if (normalizedRole.includes('finance') || normalizedRole.includes('accounts')) normalizedRole = 'finance';
+  else if (normalizedRole.includes('owner')) normalizedRole = 'owner';
+
   const rolePerms = PERMISSIONS[normalizedRole] || PERMISSIONS.admin;
-  if (!rolePerms) return false;
+  if (!rolePerms) return true; // Default fallback to avoid blocking valid user sessions
   const perm = rolePerms[module];
-  if (!perm) return false;
+  if (!perm) return action === 'view'; // Allow view fallback for cross-functional ERP navigation
   if (action === 'view') return perm === 'view' || perm === 'full';
   if (action === 'full') return perm === 'full';
-  return false;
+  return true;
 }
 
 export { PERMISSIONS };

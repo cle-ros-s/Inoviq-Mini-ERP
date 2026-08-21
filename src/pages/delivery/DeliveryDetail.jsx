@@ -10,15 +10,32 @@ const DeliveryDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [delivery, setDelivery] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const data = getDeliveryById(id);
-    setDelivery(data);
+    async function loadData() {
+      setLoading(true);
+      try {
+        const res = await getDeliveryById(id);
+        const data = res?.data || res;
+        setDelivery(data);
+      } catch (err) {
+        console.error('Error loading delivery', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
   }, [id]);
 
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading delivery details...</div>;
   if (!delivery) {
-    return <div className="p-8 text-center text-gray-500">Delivery not found.</div>;
+    return <div className="p-8 text-center text-gray-500">Delivery shipment not found in database.</div>;
   }
+
+  const delNum = delivery.deliveryNumber || delivery.id;
+  const customerName = delivery.customer?.companyName || delivery.customer?.name || delivery.customerName || 'Customer';
+  const addressStr = delivery.deliveryAddress || delivery.address || 'Standard Delivery Address';
 
   const timelineEvents = [
     {
@@ -29,25 +46,18 @@ const DeliveryDetail = () => {
       status: 'completed'
     },
     {
-      title: 'Ready for Dispatch',
-      description: 'Items are packed and ready.',
+      title: 'Dispatched / In Transit',
+      description: `Driver: ${delivery.driverName || delivery.driver || 'Assigned Logistics Carrier'}`,
       date: delivery.updatedAt || delivery.createdAt,
-      icon: <Package size={16} />,
-      status: ['Ready for Dispatch', 'Dispatched', 'In Transit', 'Delivered'].includes(delivery.status) ? 'completed' : 'pending'
-    },
-    {
-      title: 'Dispatched',
-      description: `Dispatched with driver: ${delivery.driver || 'Unassigned'}`,
-      date: delivery.updatedAt,
       icon: <Clock size={16} />,
-      status: ['Dispatched', 'In Transit', 'Delivered'].includes(delivery.status) ? 'completed' : 'pending'
+      status: ['IN_TRANSIT', 'Dispatched', 'In Transit', 'DELIVERED', 'Delivered'].includes(delivery.status) ? 'completed' : 'pending'
     },
     {
-      title: 'Delivered',
-      description: 'Package has been delivered to customer.',
-      date: delivery.status === 'Delivered' ? delivery.updatedAt : null,
+      title: 'Delivered to Customer',
+      description: 'Shipment handed over to customer.',
+      date: ['DELIVERED', 'Delivered'].includes(delivery.status) ? delivery.updatedAt : null,
       icon: <MapPin size={16} />,
-      status: delivery.status === 'Delivered' ? 'completed' : 'pending'
+      status: ['DELIVERED', 'Delivered'].includes(delivery.status) ? 'completed' : 'pending'
     }
   ];
 
@@ -63,19 +73,12 @@ const DeliveryDetail = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-3">
-              Delivery {delivery.id}
-              <StatusBadge status={delivery.status} />
+              Delivery {delNum}
+              <StatusBadge status={delivery.status || 'SCHEDULED'} />
             </h1>
-            <p className="text-sm text-gray-500">Order: {delivery.salesOrder}</p>
+            <p className="text-sm text-gray-500">Sales Order: {delivery.salesOrder?.orderNumber || delivery.salesOrderId || '—'}</p>
           </div>
         </div>
-        <button 
-          onClick={() => navigate(`/delivery/${id}/edit`)}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-        >
-          <Edit size={18} />
-          Edit
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -86,14 +89,14 @@ const DeliveryDetail = () => {
                 <h3 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-2">
                   <User size={16} /> Customer
                 </h3>
-                <p className="text-gray-900 font-medium">{delivery.customer}</p>
+                <p className="text-gray-900 font-medium">{customerName}</p>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-2">
-                  <MapPin size={16} /> Destination
+                  <MapPin size={16} /> Destination Address
                 </h3>
-                <p className="text-gray-900">{delivery.address}</p>
+                <p className="text-gray-900">{addressStr}</p>
               </div>
 
               <div>
@@ -107,18 +110,11 @@ const DeliveryDetail = () => {
 
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-2">
-                  <User size={16} /> Driver
+                  <User size={16} /> Driver / Carrier
                 </h3>
-                <p className="text-gray-900">{delivery.driver || 'Unassigned'}</p>
+                <p className="text-gray-900">{delivery.driverName || delivery.driver || 'Standard Logistics'}</p>
               </div>
             </div>
-
-            {delivery.notes && (
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Notes & Instructions</h3>
-                <p className="text-gray-700 text-sm whitespace-pre-wrap">{delivery.notes}</p>
-              </div>
-            )}
           </Card>
         </div>
 

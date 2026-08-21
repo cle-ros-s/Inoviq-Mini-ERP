@@ -18,8 +18,8 @@ const InventoryChart = ({ data = [] }) => {
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(44,36,32,0.14)' }}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
-          <Bar dataKey="freeToUse" name="Free to Use" stackId="a" fill="#2D7A45" radius={[0, 0, 4, 4]} />
-          <Bar dataKey="reserved" name="Reserved" stackId="a" fill="#C4761A" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="freeToUse" name="Free to Use" stackId="a" fill="#2D7A45" radius={[0, 0, 4, 4]} isAnimationActive={true} animationDuration={600} />
+          <Bar dataKey="reserved" name="Reserved" stackId="a" fill="#C4761A" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} />
         </BarChart>
       </ResponsiveContainer>
     </div>

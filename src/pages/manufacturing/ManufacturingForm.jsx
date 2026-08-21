@@ -5,11 +5,13 @@ import * as manufacturingService from '../../services/manufacturingService.js';
 import * as productService from '../../services/productService.js';
 import { api } from '../../services/apiClient.js';
 import { useToast } from '../../hooks/useToast.js';
+import { useRefresh } from '../../hooks/useRefresh.js';
 import QuantityInput from '../../components/ui/QuantityInput.jsx';
 import { Factory } from 'lucide-react';
 
 export default function ManufacturingForm() {
   const { user } = useAuth();
+  const { triggerRefresh } = useRefresh();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
@@ -59,6 +61,7 @@ export default function ManufacturingForm() {
         plannedQuantity: parseInt(plannedQuantity, 10) || 1
       });
       showSuccess('Production Order created successfully!');
+      triggerRefresh();
       navigate(`/manufacturing/${mo.id || mo.productionNumber || ''}`);
     } catch (err) {
       showError(err.message || 'Creation failed');

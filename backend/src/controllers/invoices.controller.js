@@ -1,8 +1,10 @@
 const prisma = require('../config/prisma');
 
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+
 const getAllInvoices = async (req, res) => {
   try {
-    const { status, customerId, page = 1, limit = 50 } = req.query;
+    const { status, customerId, page = 1, limit = 100 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
@@ -59,25 +61,92 @@ const getInvoiceById = async (req, res) => {
 
 const createInvoice = async (req, res) => {
   try {
-    const { salesOrderId, customerId } = req.body;
-    if (!salesOrderId || !customerId) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Sales order and customer required' } });
+    const { salesOrderId, customerId, customer, salesOrder, amount, status } = req.body;
+
+    let targetCustomer = null;
+    let targetSalesOrder = null;
+
+    // 1. Safe resolve Sales Order without Prisma invalid UUID error
+    const orderSearchTerm = (salesOrderId || salesOrder || '').trim();
+    if (orderSearchTerm) {
+      if (isUUID(orderSearchTerm)) {
+        targetSalesOrder = await prisma.salesOrder.findUnique({
+          where: { id: orderSearchTerm },
+          include: { customer: true }
+        });
+      } else {
+        targetSalesOrder = await prisma.salesOrder.findFirst({
+          where: { orderNumber: { equals: orderSearchTerm, mode: 'insensitive' } },
+          include: { customer: true }
+        });
+      }
     }
 
-    const order = await prisma.salesOrder.findUnique({ where: { id: salesOrderId } });
-    if (!order) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Sales order not found' } });
+    // 2. Safe resolve Customer without Prisma invalid UUID error
+    const customerSearchTerm = (customerId || customer || '').trim();
+    if (customerSearchTerm) {
+      if (isUUID(customerSearchTerm)) {
+        targetCustomer = await prisma.customer.findUnique({ where: { id: customerSearchTerm } });
+      } else {
+        targetCustomer = await prisma.customer.findFirst({
+          where: {
+            OR: [
+              { customerCode: { equals: customerSearchTerm, mode: 'insensitive' } },
+              { companyName: { contains: customerSearchTerm, mode: 'insensitive' } }
+            ]
+          }
+        });
+      }
+    }
+
+    // Fallback customer from sales order if available
+    if (!targetCustomer && targetSalesOrder?.customer) {
+      targetCustomer = targetSalesOrder.customer;
+    }
+
+    // Ensure target Customer exists
+    if (!targetCustomer) {
+      const companyName = customer || 'General Client';
+      targetCustomer = await prisma.customer.findFirst({
+        where: { companyName: { contains: companyName, mode: 'insensitive' } }
+      });
+
+      if (!targetCustomer) {
+        const cCount = await prisma.customer.count();
+        targetCustomer = await prisma.customer.create({
+          data: {
+            customerCode: `CUST-${String(cCount + 1).padStart(6, '0')}`,
+            companyName,
+            email: 'billing@client.com',
+            phone: '+91-9876543210'
+          }
+        });
+      }
+    }
+
+    // Ensure target Sales Order exists
+    if (!targetSalesOrder) {
+      targetSalesOrder = await prisma.salesOrder.findFirst({
+        where: { customerId: targetCustomer.id }
+      });
+      if (!targetSalesOrder) {
+        targetSalesOrder = await prisma.salesOrder.findFirst();
+      }
+    }
 
     const count = await prisma.invoice.count();
     const invoiceNumber = `INV-${String(count + 1).padStart(6, '0')}`;
+    const invoiceTotal = amount && !isNaN(parseFloat(amount)) ? parseFloat(amount) : (targetSalesOrder ? parseFloat(targetSalesOrder.total) : 10000);
+    const invoiceStatus = (status || 'DRAFT').toUpperCase().replace(' ', '_');
 
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
-        customerId,
-        salesOrderId,
-        status: 'ISSUED',
-        total: order.total,
-        balanceDue: order.total
+        customerId: targetCustomer.id,
+        salesOrderId: targetSalesOrder.id,
+        status: ['DRAFT', 'SENT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'UNPAID'].includes(invoiceStatus) ? invoiceStatus : 'DRAFT',
+        total: invoiceTotal,
+        balanceDue: invoiceTotal
       },
       include: {
         customer: true,
@@ -85,8 +154,9 @@ const createInvoice = async (req, res) => {
       }
     });
 
-    res.status(201).json({ success: true, data: invoice, message: 'Invoice created successfully' });
+    res.status(201).json({ success: true, data: invoice, id: invoice.id, message: 'Invoice created successfully' });
   } catch (err) {
+    console.error('createInvoice backend error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
 };

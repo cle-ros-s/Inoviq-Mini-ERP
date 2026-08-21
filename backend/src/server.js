@@ -5,7 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Server } = require('socket.io');
-const { Pool } = require('pg');
+const db = require('./config/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -44,16 +44,20 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Health Check
+// Health Check Endpoint (Actually performs SQL query SELECT 1 against PostgreSQL)
 app.get('/api/health', async (req, res) => {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  try {
-    await pool.query('SELECT 1');
-    res.json({ success: true, data: { api: 'ok', database: 'connected' } });
-  } catch (err) {
-    res.status(503).json({ success: false, data: { api: 'ok', database: 'disconnected' } });
-  } finally {
-    await pool.end();
+  const isDbConnected = await db.testConnection();
+  if (isDbConnected) {
+    res.json({
+      success: true,
+      data: { api: 'ok', database: 'connected' }
+    });
+  } else {
+    res.status(503).json({
+      success: false,
+      data: { api: 'ok', database: 'disconnected' },
+      error: { code: 'DATABASE_DISCONNECTED', message: 'Unable to query PostgreSQL database pool.' }
+    });
   }
 });
 
@@ -101,8 +105,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-server.listen(PORT, () => {
+// Startup PostgreSQL DB Test & Server Launch
+server.listen(PORT, async () => {
   console.log(`\n🚀 Shiv Furniture Works ERP Backend`);
   console.log(`   Server & Socket.IO running on http://localhost:${PORT}`);
-  console.log(`   Database connected: ${process.env.DATABASE_URL?.split('@')[1] || 'PostgreSQL'}`);
+  
+  const isDbOk = await db.testConnection();
+  if (isDbOk) {
+    console.log(`   ✅ PostgreSQL connected successfully: ${process.env.DATABASE_URL?.split('@')[1] || 'PostgreSQL'}`);
+  } else {
+    console.error(`   ❌ PostgreSQL connection failed! Check your DATABASE_URL environment variable.`);
+  }
 });

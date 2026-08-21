@@ -4,148 +4,123 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useRefresh } from '../../hooks/useRefresh.js';
 import { useToast } from '../../hooks/useToast.js';
 import * as productService from '../../services/productService.js';
-import * as inventoryService from '../../services/inventoryService.js';
-import Tabs from '../../components/ui/Tabs.jsx';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import { formatCurrency } from '../../utils/formatters.js';
+import { ArrowLeft, Edit, Package } from 'lucide-react';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { hasPermission, currentUser } = useAuth();
+  const { hasPermission } = useAuth();
   const { refreshCounter } = useRefresh();
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast();
 
   const [product, setProduct] = useState(null);
-  const [inv, setInv] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const p = productService.getProductWithInventory(id);
-      if (p) {
-        setProduct(p);
-        setInv(p.inventory);
+    async function loadProduct() {
+      setLoading(true);
+      try {
+        const p = await productService.getProductWithInventory(id);
+        if (p) {
+          setProduct(p);
+        } else {
+          showError('Product not found');
+        }
+      } catch (e) {
+        showError('Failed to load product details');
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      showError('Failed to load product');
     }
+    loadProduct();
   }, [id, refreshCounter]);
 
-  if (!product) return <div className="page-loading">Loading product...</div>;
+  if (loading) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Loading product details...</div>;
+  if (!product) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Product not found</div>;
 
   const canEdit = hasPermission('products', 'full');
-
-  const tabs = [
-    {
-      key: 'overview', label: 'Overview & Pricing',
-      content: (
-        <div className="detail-grid">
-          <div className="card">
-            <div className="card__header"><h3 className="card__title">Product Info</h3></div>
-            <div className="card__body detail-fields">
-              <div className="detail-field"><span className="detail-label">SKU</span><span className="detail-value">{product.sku}</span></div>
-              <div className="detail-field"><span className="detail-label">Category</span><span className="detail-value">{product.category?.name || product.category || '—'}</span></div>
-              <div className="detail-field"><span className="detail-label">Description</span><span className="detail-value">{product.description || '—'}</span></div>
-              <div className="detail-field"><span className="detail-label">Status</span><span className="detail-value"><StatusBadge status={product.active ? 'Active' : 'Inactive'} /></span></div>
-            </div>
-          </div>
-          <div className="card">
-            <div className="card__header"><h3 className="card__title">Pricing</h3></div>
-            <div className="card__body detail-fields">
-              <div className="detail-field"><span className="detail-label">Sales Price</span><span className="detail-value price-highlight">{formatCurrency(product.salesPrice)}</span></div>
-              <div className="detail-field"><span className="detail-label">Cost Price</span><span className="detail-value">{formatCurrency(product.costPrice)}</span></div>
-              <div className="detail-field"><span className="detail-label">Margin</span><span className="detail-value">{product.salesPrice > 0 ? Math.round(((product.salesPrice - product.costPrice) / product.salesPrice) * 100) : 0}%</span></div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'inventory', label: 'Inventory',
-      content: (
-        <div className="card">
-          <div className="card__body">
-            <div className="inventory-stats-grid">
-              <div className="inv-stat">
-                <div className="inv-stat__label">On Hand</div>
-                <div className="inv-stat__value">{inv?.onHand ?? 0}</div>
-              </div>
-              <div className="inv-stat">
-                <div className="inv-stat__label">Reserved</div>
-                <div className="inv-stat__value" style={{ color: 'var(--color-warning)' }}>{inv?.reserved ?? 0}</div>
-              </div>
-              <div className="inv-stat">
-                <div className="inv-stat__label">Free To Use</div>
-                <div className="inv-stat__value" style={{ color: 'var(--color-success)' }}>{inv?.freeToUse ?? 0}</div>
-              </div>
-              <div className="inv-stat">
-                <div className="inv-stat__label">Reorder Level</div>
-                <div className="inv-stat__value">{product.reorderLevel ?? 0}</div>
-              </div>
-            </div>
-            <div style={{ marginTop: '16px' }}>
-              <StatusBadge status={inventoryService.getStockStatus(id)} />
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'procurement', label: 'Procurement Config',
-      content: (
-        <div className="card">
-          <div className="card__body detail-fields">
-            <div className="detail-field"><span className="detail-label">Strategy</span><span className="detail-value"><span className="badge">{product.procurementStrategy}</span></span></div>
-            <div className="detail-field"><span className="detail-label">Type</span><span className="detail-value"><span className="badge">{product.procurementType}</span></span></div>
-            {product.vendorId && <div className="detail-field"><span className="detail-label">Vendor ID</span><span className="detail-value">{product.vendorId}</span></div>}
-            {product.bomId && <div className="detail-field"><span className="detail-label">BoM ID</span><span className="detail-value"><button className="btn-link" onClick={() => navigate(`/bom/${product.bomId}`)} style={{ color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>{product.bomId}</button></span></div>}
-          </div>
-        </div>
-      )
-    },
-  ];
+  const inv = product.inventory || product;
+  const onHand = product.onHandQuantity !== undefined ? product.onHandQuantity : (inv.onHand ?? inv.quantity ?? 0);
+  const salesPrice = parseFloat(product.salesPrice || 0);
+  const costPrice = parseFloat(product.costPrice || 0);
+  const marginPct = salesPrice > 0 ? Math.round(((salesPrice - costPrice) / salesPrice) * 100) : 0;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="page-container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <div className="breadcrumb">
-            <button className="breadcrumb-link" onClick={() => navigate('/products')}>Products</button>
-            <span className="breadcrumb-sep"> / </span>
-            <span>{product.name}</span>
+          <button
+            onClick={() => navigate('/products')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}
+          >
+            <ArrowLeft size={16} /> Back to Products
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
+              {product.name}
+            </h1>
+            <span className="badge" style={{ backgroundColor: 'var(--color-gray-100)', color: 'var(--color-gray-700)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>
+              {product.sku}
+            </span>
+            <StatusBadge status={product.active !== false ? 'Active' : 'Inactive'} />
           </div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {product.name}
-            <span className="badge badge-secondary">{product.sku}</span>
-            <StatusBadge status={product.active ? 'Active' : 'Inactive'} />
-          </h1>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div>
           {canEdit && (
-            <button className="btn btn-primary" onClick={() => navigate(`/products/${id}/edit`)}>
-              Edit Product
-            </button>
-          )}
-          {canEdit && (
-            <button
-              className="btn btn-secondary"
-              onClick={() => {
-                if (window.confirm(`Deactivate ${product.name}?`)) {
-                  try {
-                    productService.deactivateProduct(id, currentUser?.userId);
-                    showSuccess('Product deactivated');
-                    navigate('/products');
-                  } catch (e) { showError(e.message); }
-                }
-              }}
-            >
-              Deactivate
+            <button className="btn btn-primary" onClick={() => navigate(`/products/${id}/edit`)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Edit size={16} /> Edit Product
             </button>
           )}
         </div>
       </div>
 
-      <Tabs tabs={tabs} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        {/* Product Info */}
+        <div className="card" style={{ padding: '20px' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Package size={18} style={{ color: 'var(--color-primary-dark)' }} /> General Information
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>SKU:</span>
+              <span style={{ fontWeight: 600 }}>{product.sku}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Category:</span>
+              <span>{product.category?.name || product.category || 'Standard'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Description:</span>
+              <span style={{ textAlign: 'right', maxWidth: '200px' }}>{product.description || '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing & Stock */}
+        <div className="card" style={{ padding: '20px' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600 }}>Pricing & Stock Metrics</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Sales Price:</span>
+              <span style={{ fontWeight: 700, color: 'var(--color-primary-dark)', fontSize: '16px' }}>{formatCurrency(salesPrice)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Cost Price:</span>
+              <span style={{ fontWeight: 600 }}>{formatCurrency(costPrice)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Gross Margin:</span>
+              <span style={{ fontWeight: 600, color: marginPct > 20 ? 'var(--color-success)' : 'inherit' }}>{marginPct}%</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border)', paddingTop: '10px' }}>
+              <span style={{ color: 'var(--color-gray-600)', fontWeight: 600 }}>Stock On Hand:</span>
+              <span style={{ fontWeight: 700, fontSize: '16px' }}>{onHand} units</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

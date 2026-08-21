@@ -1,0 +1,1 @@
+import{m as r}from"./index-A2rwtCid.js";async function e(){try{return(await r.get("/users")).data||[]}catch{return[]}}async function n(s){return(await r.post("/users",s)).data}async function c(s){return(await r.patch(`/users/${s}/suspend`)).data}export{n as c,c as d,e as g};

@@ -47,11 +47,14 @@ const DataTable = ({
       const lowerSearch = searchTerm.toLowerCase();
       result = result.filter(item => {
         return columns.some(col => {
-          if (!col.searchable && searchable) {
-            const val = item[col.key];
-            return val && String(val).toLowerCase().includes(lowerSearch);
+          if (col.searchable === false) return false;
+          const val = item[col.key];
+          if (val === undefined || val === null) return false;
+          if (typeof val === 'object') {
+            const strVal = (val.companyName || val.name || val.code || val.orderNumber || val.poNumber || val.sku || val.title || JSON.stringify(val)).toLowerCase();
+            return strVal.includes(lowerSearch);
           }
-          return false;
+          return String(val).toLowerCase().includes(lowerSearch);
         });
       });
     }
@@ -76,11 +79,14 @@ const DataTable = ({
     }
 
     return result;
-  }, [data, searchTerm, sortConfig, activeFilters, columns, searchable]);
+  }, [data, searchTerm, sortConfig, activeFilters, columns]);
 
   const totalItems = filteredData.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const currentData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+  // Boundary check: adjust currentPage if out of range
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const currentData = filteredData.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   return (
     <div className="datatable-container">
@@ -174,11 +180,15 @@ const DataTable = ({
                 >
                   {columns.map((col, colIndex) => {
                     const rawVal = row[col.key];
-                    const cellContent = col.render 
+                    let cellContent = col.render 
                       ? col.render(row, rawVal) 
-                      : (typeof rawVal === 'object' && rawVal !== null
-                          ? (rawVal.name || rawVal.companyName || rawVal.code || rawVal.label || rawVal.title || '—')
-                          : (rawVal !== undefined && rawVal !== null ? rawVal : '—'));
+                      : rawVal;
+
+                    if (typeof cellContent === 'object' && cellContent !== null && !React.isValidElement(cellContent)) {
+                      cellContent = cellContent.companyName || cellContent.name || cellContent.orderNumber || cellContent.poNumber || cellContent.deliveryNumber || cellContent.sku || cellContent.code || cellContent.label || cellContent.title || cellContent.status || '—';
+                    } else if (cellContent === undefined || cellContent === null) {
+                      cellContent = '—';
+                    }
 
                     return (
                       <td key={colIndex} className="p-4 text-gray-800">
@@ -201,7 +211,7 @@ const DataTable = ({
       {!loading && totalItems > 0 && (
         <div className="mt-4">
           <Pagination 
-            currentPage={currentPage} 
+            currentPage={safeCurrentPage} 
             totalPages={totalPages} 
             onPageChange={setCurrentPage}
             pageSize={pageSize}

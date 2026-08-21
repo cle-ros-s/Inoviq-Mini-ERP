@@ -172,8 +172,10 @@ const createSalesOrder = async (req, res) => {
       return order;
     });
 
-    req.app.get('io')?.emit('erp:update', { entity: 'salesOrder', action: 'create', data: createdOrder });
-    req.app.get('io')?.emit('dashboard:refresh');
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'salesOrder', action: 'create', data: createdOrder });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
 
     res.status(201).json({ success: true, data: createdOrder, message: 'Sales order created successfully' });
   } catch (err) {
@@ -201,8 +203,10 @@ const updateOrderStatus = async (req, res) => {
       data: { status }
     });
 
-    req.app.get('io')?.emit('erp:update', { entity: 'salesOrder', action: 'update', data: updated });
-    req.app.get('io')?.emit('dashboard:refresh');
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'salesOrder', action: 'update', data: updated });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
 
     res.json({ success: true, data: updated, message: `Order status updated to ${status}` });
   } catch (err) {

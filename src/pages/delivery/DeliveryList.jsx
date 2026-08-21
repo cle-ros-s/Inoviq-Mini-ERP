@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Eye, RefreshCw } from 'lucide-react';
 import DataTable from '../../components/ui/DataTable';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Card from '../../components/ui/Card';
-import { getDeliveries, deleteDelivery } from '../../services/deliveryService';
+import { getDeliveries } from '../../services/deliveryService';
+import { formatDate } from '../../utils/formatters';
 
 const DeliveryList = () => {
   const navigate = useNavigate();
@@ -20,7 +21,14 @@ const DeliveryList = () => {
     try {
       const data = await getDeliveries();
       const list = Array.isArray(data) ? data : (data?.data || []);
-      setDeliveries(list);
+      const enriched = list.map(del => ({
+        ...del,
+        id: del.id,
+        deliveryNumber: del.deliveryNumber || del.id,
+        customerName: del.customer?.companyName || del.customer?.name || del.customerName || 'Customer',
+        orderNumber: del.salesOrder?.orderNumber || del.salesOrder?.id || del.salesOrderId || '—'
+      }));
+      setDeliveries(enriched);
     } catch (error) {
       console.error('Failed to load deliveries', error);
       setDeliveries([]);
@@ -29,37 +37,46 @@ const DeliveryList = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this delivery?')) {
-      deleteDelivery(id);
-      loadDeliveries();
-    }
-  };
-
   const columns = [
-    { key: 'id', label: 'ID' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'salesOrder', label: 'Order' },
-    { key: 'deliveryDate', label: 'Date', render: (val) => val ? new Date(val).toLocaleDateString() : 'N/A' },
-    { key: 'driver', label: 'Driver' },
+    { 
+      key: 'deliveryNumber', 
+      label: 'Delivery #', 
+      sortable: true,
+      render: (row) => (
+        <span style={{ fontWeight: 600, color: 'var(--color-primary-dark, #8B5E3C)' }}>
+          {row.deliveryNumber}
+        </span>
+      )
+    },
+    { key: 'customerName', label: 'Customer', sortable: true },
+    { key: 'orderNumber', label: 'Sales Order', sortable: true },
+    { 
+      key: 'deliveryDate', 
+      label: 'Scheduled Date', 
+      sortable: true,
+      render: (row) => formatDate(row.scheduledDate || row.deliveryDate || row.createdAt)
+    },
+    { 
+      key: 'driver', 
+      label: 'Driver / Carrier', 
+      render: (row) => row.driverName || row.driver || 'Unassigned'
+    },
     { 
       key: 'status', 
       label: 'Status',
-      render: (val) => <StatusBadge status={val} />
+      render: (row) => <StatusBadge status={row.status || 'SCHEDULED'} />
     },
     {
       key: 'actions',
       label: 'Actions',
-      render: (_, row) => (
-        <div className="flex gap-2">
-          <button className="text-gray-500 hover:text-blue-600" onClick={(e) => { e.stopPropagation(); navigate(`/delivery/${row.id}`); }} title="View">
-            <Eye size={18} />
-          </button>
-          <button className="text-gray-500 hover:text-green-600" onClick={(e) => { e.stopPropagation(); navigate(`/delivery/${row.id}/edit`); }} title="Edit">
-            <Edit size={18} />
-          </button>
-          <button className="text-gray-500 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} title="Delete">
-            <Trash2 size={18} />
+      render: (row) => (
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button 
+            className="btn btn-ghost btn-sm" 
+            onClick={(e) => { e.stopPropagation(); navigate(`/delivery/${row.id}`); }} 
+            title="View Details"
+          >
+            <Eye size={15} />
           </button>
         </div>
       )
@@ -67,20 +84,26 @@ const DeliveryList = () => {
   ];
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="page-container" style={{ padding: '24px 16px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 className="page-title">Deliveries</h1>
-          <p className="page-subtitle">Manage delivery tracking and driver assignments</p>
+          <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>Deliveries & Shipments</h1>
+          <p style={{ fontSize: '13px', color: 'var(--color-gray-500, #64748B)', margin: '4px 0 0 0' }}>
+            Manage order dispatches, delivery tracking, and carrier status
+          </p>
         </div>
-        <button 
-          className="btn btn-primary"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          onClick={() => navigate('/delivery/new')}
-        >
-          <Plus size={14} />
-          New Delivery
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary" onClick={loadDeliveries} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button 
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            onClick={() => navigate('/delivery/new')}
+          >
+            <Plus size={14} /> New Shipment
+          </button>
+        </div>
       </div>
 
       <Card>
@@ -89,9 +112,9 @@ const DeliveryList = () => {
           data={deliveries} 
           loading={loading}
           searchable={true}
-          searchPlaceholder="Search deliveries..."
+          searchPlaceholder="Search delivery number or customer..."
           emptyTitle="No Deliveries Found"
-          emptyDescription="You haven't created any deliveries yet."
+          emptyDescription="You haven't created any delivery shipments yet."
         />
       </Card>
     </div>

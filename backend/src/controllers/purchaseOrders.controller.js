@@ -170,8 +170,10 @@ const createPurchaseOrder = async (req, res) => {
       return po;
     });
 
-    req.app.get('io')?.emit('erp:update', { entity: 'purchaseOrder', action: 'create', data: createdPo });
-    req.app.get('io')?.emit('dashboard:refresh');
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'purchaseOrder', action: 'create', data: createdPo });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
 
     res.status(201).json({ success: true, data: createdPo, message: 'Purchase order created successfully' });
   } catch (err) {
@@ -214,6 +216,11 @@ const receivePurchaseOrder = async (req, res) => {
         data: { status: 'RECEIVED' }
       });
     });
+
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'purchaseOrder', action: 'receive', data: po });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
 
     res.json({ success: true, message: 'Purchase order received and stock updated' });
   } catch (err) {

@@ -25,7 +25,7 @@ const PurchaseChart = ({ data = [] }) => {
             cursor={{ fill: '#F8F4F0' }}
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(44,36,32,0.14)' }}
           />
-          <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
+          <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24} isAnimationActive={true} animationDuration={600}>
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[entry.status] || '#8B5E3C'} />
             ))}

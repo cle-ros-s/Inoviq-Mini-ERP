@@ -85,6 +85,11 @@ const createProductionOrder = async (req, res) => {
       }
     });
 
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'productionOrder', action: 'create', data: order });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
+
     res.status(201).json({ success: true, data: order, message: 'Production order created' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
@@ -144,6 +149,11 @@ const startProduction = async (req, res) => {
       });
     });
 
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'productionOrder', action: 'start', data: order });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
+
     res.json({ success: true, message: 'Production started, raw materials consumed' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
@@ -181,6 +191,11 @@ const completeProduction = async (req, res) => {
         }
       });
     });
+
+    const io = req.app.get('io');
+    io?.emit('erp:update', { entity: 'productionOrder', action: 'complete', data: order });
+    io?.emit('dashboard:refresh');
+    io?.emit('data_updated');
 
     res.json({ success: true, message: 'Production completed! Finished goods added to stock.' });
   } catch (err) {

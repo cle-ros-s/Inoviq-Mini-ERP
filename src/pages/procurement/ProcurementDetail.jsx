@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as procurementService from '../../services/procurementService.js';
-import * as productService from '../../services/productService.js';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import { useToast } from '../../hooks/useToast.js';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ProcurementDetail() {
   const { id } = useParams();
@@ -11,61 +11,66 @@ export default function ProcurementDetail() {
   const { showError } = useToast();
 
   const [proc, setProc] = useState(null);
-  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const data = procurementService.getProcurementById(id);
-      if (data) {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const res = await procurementService.getProcurementById(id);
+        const data = res?.data || res;
         setProc(data);
-        setProduct(productService.getProduct(data.productId));
-      } else {
-        showError('Procurement Request not found');
+      } catch (e) {
+        showError('Failed to load Procurement Request');
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      showError('Failed to load Procurement Request');
     }
+    loadData();
   }, [id]);
 
-  if (!proc) return <div className="page-loading">Loading Procurement Request...</div>;
+  if (loading) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Loading Procurement Request...</div>;
+  if (!proc) return <div className="page-loading" style={{ padding: '40px', textAlign: 'center' }}>Procurement Request Not Found</div>;
+
+  const reqId = proc.requestNumber || proc.id;
+  const prodName = proc.product?.name || proc.productId || 'Product';
+  const reqQty = proc.requiredQty || proc.quantity || 0;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="page-container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <div className="breadcrumb">
-            <button className="breadcrumb-link" onClick={() => navigate('/procurement')}>Procurement Requests</button>
-            <span className="breadcrumb-sep"> / </span>
-            <span>{proc.id}</span>
+          <button
+            onClick={() => navigate('/procurement')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}
+          >
+            <ArrowLeft size={16} /> Back to Procurement Requests
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
+              {reqId}
+            </h1>
+            <StatusBadge status={proc.status || 'PENDING'} />
           </div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {proc.id} — {product?.name || proc.productId}
-            <StatusBadge status={proc.status} />
-          </h1>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate('/procurement')}>
-          ← Back to List
-        </button>
       </div>
 
-      <div className="detail-grid" style={{ marginBottom: '24px' }}>
-        <div className="card">
-          <div className="card__header"><h3 className="card__title">Request Summary</h3></div>
-          <div className="card__body detail-fields">
-            <div className="detail-field"><span className="detail-label">Request ID</span><span className="detail-value">{proc.id}</span></div>
-            <div className="detail-field"><span className="detail-label">Product</span><span className="detail-value">{product?.name} ({proc.productId})</span></div>
-            <div className="detail-field"><span className="detail-label">Procurement Type</span><span className="detail-value"><span className="badge">{proc.procurementType}</span></span></div>
-            <div className="detail-field"><span className="detail-label">Status</span><span className="detail-value"><StatusBadge status={proc.status} /></span></div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card__header"><h3 className="card__title">Quantities & Triggered Document</h3></div>
-          <div className="card__body detail-fields">
-            <div className="detail-field"><span className="detail-label">Required Qty</span><span className="detail-value">{proc.requiredQty}</span></div>
-            <div className="detail-field"><span className="detail-label">Shortage Qty</span><span className="detail-value" style={{ color: 'var(--color-error)', fontWeight: 600 }}>{proc.shortageQty}</span></div>
-            <div className="detail-field"><span className="detail-label">Source Document</span><span className="detail-value">{proc.sourceType} {proc.sourceId}</span></div>
-            <div className="detail-field"><span className="detail-label">Generated Order</span><span className="detail-value">{proc.targetId || 'N/A'}</span></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600 }}>Request Summary</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Target Product:</span>
+              <span style={{ fontWeight: 700 }}>{prodName}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Required Quantity:</span>
+              <span style={{ fontWeight: 700, fontSize: '16px' }}>{reqQty} units</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-gray-600)' }}>Request Status:</span>
+              <StatusBadge status={proc.status || 'PENDING'} />
+            </div>
           </div>
         </div>
       </div>

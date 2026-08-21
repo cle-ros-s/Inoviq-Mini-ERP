@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute.jsx';
 import RoleGuard from './RoleGuard.jsx';
 import AppShell from '../components/layout/AppShell.jsx';
+import ErrorBoundary from '../components/ui/ErrorBoundary.jsx';
 
 // Auth pages (not lazy - need fast load)
 import Login from '../pages/auth/Login.jsx';
@@ -80,10 +81,12 @@ const router = createBrowserRouter([
         <AppShell />
       </ProtectedRoute>
     ),
+    errorElement: <ErrorBoundary />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
 
       { path: 'dashboard', element: withSuspense(Dashboard) },
+      { path: 'dashboard/:roleParam', element: withSuspense(Dashboard) },
 
       // Products
       { path: 'products', element: <RoleGuard module="products" action="view">{withSuspense(ProductList)}</RoleGuard> },
@@ -131,7 +134,7 @@ const router = createBrowserRouter([
 
       // Finance / Invoices
       { path: 'finance', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceList)}</RoleGuard> },
-      { path: 'finance/new', element: <RoleGuard module="finance">{withSuspense(InvoiceForm)}</RoleGuard> },
+      { path: 'finance/new', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceForm)}</RoleGuard> },
       { path: 'finance/:id', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceDetail)}</RoleGuard> },
 
       // Audit

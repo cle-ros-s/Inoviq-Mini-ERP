@@ -30,7 +30,7 @@ export default function ProcurementList() {
 
         const enriched = rawList.map(p => ({
           ...p,
-          productName: prodMap[p.productId]?.name || p.productId || 'N/A',
+          productName: prodMap[p.productId]?.name || p.productName || p.productId || 'N/A',
         }));
         setProcurements(enriched);
       } catch (e) {

@@ -1,40 +1,21 @@
 import { api } from './apiClient.js';
 
-async function fetchDashboardData() {
+export async function fetchDashboardData(roleEndpoint = '') {
   try {
-    const res = await api.get('/dashboard/kpis');
-    return res.data || {};
+    const endpoint = roleEndpoint ? `/dashboard/${roleEndpoint}` : '/dashboard';
+    const res = await api.get(endpoint);
+    return res.data || res || {};
   } catch (err) {
-    console.error('Failed to load dashboard data:', err);
-    return {};
+    console.error(`Failed to load dashboard data for endpoint (${roleEndpoint}):`, err);
+    throw err;
   }
 }
 
-export async function getFullDashboard() {
-  return await fetchDashboardData();
+export async function getFullDashboard(roleEndpoint = '') {
+  return await fetchDashboardData(roleEndpoint);
 }
 
-export async function getKPIs() {
-  const data = await fetchDashboardData();
+export async function getKPIs(roleEndpoint = '') {
+  const data = await fetchDashboardData(roleEndpoint);
   return data.dashboard?.kpis || {};
-}
-
-export async function getSalesChartData(days = 30) {
-  const data = await fetchDashboardData();
-  return data.dashboard?.charts?.salesChart || [];
-}
-
-export async function getInventoryChartData() {
-  const data = await fetchDashboardData();
-  return data.dashboard?.charts?.inventoryChart || [];
-}
-
-export async function getManufacturingChartData() {
-  const data = await fetchDashboardData();
-  return data.dashboard?.charts?.manufacturingChart || [];
-}
-
-export async function getPurchaseChartData() {
-  const data = await fetchDashboardData();
-  return data.dashboard?.charts?.purchaseChart || [];
 }
