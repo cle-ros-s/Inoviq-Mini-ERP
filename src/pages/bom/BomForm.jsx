@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import * as bomService from '../../services/bomService.js';
 import * as productService from '../../services/productService.js';
@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input.jsx';
 import { Plus, Trash2, FileText } from 'lucide-react';
 
 export default function BomForm() {
+  const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
@@ -24,20 +25,38 @@ export default function BomForm() {
   });
 
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
         const prodData = await productService.getProductsWithInventory();
         const pList = Array.isArray(prodData) ? prodData : (prodData?.data || []);
         setProducts(pList);
-        if (pList.length > 0) {
+
+        if (id) {
+          const bomRes = await bomService.getBomById(id);
+          const existingBom = bomRes?.data || bomRes;
+          if (existingBom) {
+            setProductId(existingBom.productId || (pList.length > 0 ? pList[0].id : ''));
+            setFormData({
+              version: existingBom.version || '1.0',
+              quantityProduced: existingBom.quantityProduced || 1,
+              notes: existingBom.notes || '',
+              items: (existingBom.items || existingBom.components || []).map((item, idx) => ({
+                key: `item-${Date.now()}-${idx}`,
+                materialId: item.materialId || item.productId || '',
+                quantity: item.quantity || 1,
+                unitOfMeasure: item.unitOfMeasure || 'PCS'
+              }))
+            });
+          }
+        } else if (pList.length > 0) {
           setProductId(pList[0].id);
         }
       } catch (err) {
-        console.error('Failed to load products in BomForm:', err);
+        console.error('Failed to load initial data in BomForm:', err);
       }
     }
-    loadProducts();
-  }, []);
+    loadData();
+  }, [id]);
 
   const addComponent = () => {
     const firstP = products[0];
@@ -92,7 +111,7 @@ export default function BomForm() {
 
     setLoading(true);
     try {
-      const bom = await bomService.createBom({
+      const payload = {
         productId,
         version: formData.version,
         quantityProduced: parseInt(formData.quantityProduced, 10) || 1,
@@ -102,11 +121,21 @@ export default function BomForm() {
           quantity: parseFloat(item.quantity) || 1,
           unitOfMeasure: item.unitOfMeasure || 'PCS'
         }))
-      });
-      showSuccess('Bill of Materials created successfully!');
-      navigate(`/bom/${bom.id || bom.bomNumber || ''}`);
+      };
+
+      let bom;
+      if (id) {
+        bom = await bomService.updateBom(id, payload);
+        showSuccess('Bill of Materials updated successfully!');
+      } else {
+        bom = await bomService.createBom(payload);
+        showSuccess('Bill of Materials created successfully!');
+      }
+      
+      const createdId = bom?.id || bom?.data?.id || id || bom?.bomNumber || '';
+      navigate(`/bom/${createdId}`);
     } catch (err) {
-      showError(err.message || 'Creation failed');
+      showError(err.message || (id ? 'Update failed' : 'Creation failed'));
     } finally {
       setLoading(false);
     }
@@ -121,9 +150,11 @@ export default function BomForm() {
               Bill of Materials
             </button>
             <span className="breadcrumb-sep"> / </span>
-            <span>New BOM</span>
+            <span>{id ? 'Edit BOM' : 'New BOM'}</span>
           </div>
-          <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>New Bill of Materials</h1>
+          <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
+            {id ? 'Edit Bill of Materials' : 'New Bill of Materials'}
+          </h1>
         </div>
       </div>
 
@@ -277,7 +308,7 @@ export default function BomForm() {
             Cancel
           </button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Saving BOM...' : 'Save Bill of Materials'}
+            {loading ? (id ? 'Updating BOM...' : 'Saving BOM...') : (id ? 'Update Bill of Materials' : 'Save Bill of Materials')}
           </button>
         </div>
       </form>

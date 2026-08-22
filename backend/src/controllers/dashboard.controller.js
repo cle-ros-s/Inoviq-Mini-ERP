@@ -83,6 +83,8 @@ const getAdminDashboard = async (req, res) => {
     const { totalOnHand, lowStockCount, inventoryChart } = await getInventoryMetrics();
 
     const totalRevenue = allInvoices.reduce((acc, inv) => acc + (Number(inv.total) - Number(inv.balanceDue)), 0);
+    const waitingForStockCount = allSalesOrders.filter(o => o.status === 'WAITING_FOR_STOCK').length;
+    const readyForFulfillmentCount = allSalesOrders.filter(o => o.status === 'READY_FOR_FULFILLMENT').length;
 
     const kpis = {
       totalUsers: totalUsersCount,
@@ -96,7 +98,9 @@ const getAdminDashboard = async (req, res) => {
       totalRevenue,
       pendingOrders: allSalesOrders.filter(o => o.status === 'DRAFT').length + allPurchaseOrders.filter(p => p.status === 'DRAFT').length,
       lowStockProducts: lowStockCount,
-      pendingApprovals: allSalesOrders.filter(o => o.status === 'DRAFT').length
+      pendingApprovals: allSalesOrders.filter(o => o.status === 'DRAFT').length,
+      waitingForStock: waitingForStockCount,
+      readyForFulfillment: readyForFulfillmentCount
     };
 
     const salesChart = [
@@ -194,6 +198,9 @@ const getSalesDashboard = async (req, res) => {
     const conversionRate = totalQuotationsCount > 0 ? Math.round((confirmedOrdersCount / totalQuotationsCount) * 100) : (allSalesOrders.length > 0 ? 100 : 0);
     const outstandingSalesOrders = allSalesOrders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length;
 
+    const waitingForStockCount = allSalesOrders.filter(o => o.status === 'WAITING_FOR_STOCK').length;
+    const readyForFulfillmentCount = allSalesOrders.filter(o => o.status === 'READY_FOR_FULFILLMENT').length;
+
     const kpis = {
       todaySales: salesToday,
       monthlySales: salesThisMonth,
@@ -203,12 +210,15 @@ const getSalesDashboard = async (req, res) => {
       conversionRate,
       topCustomers,
       topSellingProducts,
-      outstandingSalesOrders
+      outstandingSalesOrders,
+      waitingForStock: waitingForStockCount,
+      readyForFulfillment: readyForFulfillmentCount
     };
 
     const salesChart = [
       { date: 'Draft Orders', count: allSalesOrders.filter(o => o.status === 'DRAFT').length, value: allSalesOrders.filter(o => o.status === 'DRAFT').reduce((a, b) => a + Number(b.total), 0) },
-      { date: 'Confirmed Orders', count: confirmedOrdersCount, value: allSalesOrders.filter(o => o.status === 'CONFIRMED').reduce((a, b) => a + Number(b.total), 0) },
+      { date: 'Waiting Stock', count: waitingForStockCount, value: allSalesOrders.filter(o => o.status === 'WAITING_FOR_STOCK').reduce((a, b) => a + Number(b.total), 0) },
+      { date: 'Ready Orders', count: readyForFulfillmentCount, value: allSalesOrders.filter(o => o.status === 'READY_FOR_FULFILLMENT').reduce((a, b) => a + Number(b.total), 0) },
       { date: 'Delivered Orders', count: allSalesOrders.filter(o => o.status === 'DELIVERED').length, value: allSalesOrders.filter(o => o.status === 'DELIVERED').reduce((a, b) => a + Number(b.total), 0) }
     ];
 
@@ -221,9 +231,10 @@ const getSalesDashboard = async (req, res) => {
     ];
 
     const alerts = [];
+    if (waitingForStockCount > 0) alerts.push(`Waiting for Stock: ${waitingForStockCount} customer order(s) are awaiting stock replenishment.`);
+    if (readyForFulfillmentCount > 0) alerts.push(`Ready for Fulfillment: ${readyForFulfillmentCount} order(s) are now ready for delivery!`);
     if (pendingQuotationsCount > 0) alerts.push(`Pending Quotations: ${pendingQuotationsCount} draft quotations are awaiting customer response.`);
     if (pendingEnquiriesCount > 0) alerts.push(`New Enquiries: ${pendingEnquiriesCount} new customer enquiries require attention.`);
-    if (outstandingSalesOrders > 0) alerts.push(`Fulfillment Notice: ${outstandingSalesOrders} confirmed sales orders are awaiting delivery.`);
 
     const recentActivity = await prisma.auditLog.findMany({
       where: { entity: { in: ['SalesOrder', 'Quotation', 'Enquiry', 'Customer'] } },

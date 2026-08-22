@@ -22,7 +22,8 @@ export async function createBom(data) {
 }
 
 export async function updateBom(id, data) {
-  return { success: true };
+  const res = await api.put(`/boms/${id}`, data);
+  return res.data;
 }
 
 export async function getActiveBomForProduct(productId) {

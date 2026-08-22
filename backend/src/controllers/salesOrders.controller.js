@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
+const { calculateOrderStockAvailability, processSalesOrderStockCheck } = require('../utils/stockAllocationEngine');
 
 const getAllSalesOrders = async (req, res) => {
   try {
@@ -139,7 +141,7 @@ const createSalesOrder = async (req, res) => {
         data: {
           orderNumber,
           customerId,
-          status: 'DRAFT',
+          status: 'CONFIRMED',
           subtotal,
           total,
           items: {
@@ -169,13 +171,22 @@ const createSalesOrder = async (req, res) => {
         });
       }
 
+      const io = req.app.get('io');
+      // Run stock availability check and auto-procurement
+      await processSalesOrderStockCheck(tx, order.id, validUserId, io);
+
       return order;
     });
 
     const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'salesOrder', action: 'create', data: createdOrder });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'SALES',
+      title: `New Sales Order ${createdOrder.orderNumber || createdOrder.id}`,
+      message: `Created order for ${createdOrder.customer?.companyName || 'Customer'} (Total: ₹${(createdOrder.total || 0).toLocaleString()})`,
+      path: `/sales/${createdOrder.id}`,
+      severity: 'INFO',
+      data: createdOrder
+    });
 
     res.status(201).json({ success: true, data: createdOrder, message: 'Sales order created successfully' });
   } catch (err) {
@@ -198,15 +209,29 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Sales order not found' } });
     }
 
-    const updated = await prisma.salesOrder.update({
-      where: { id: order.id },
-      data: { status }
+    const io = req.app.get('io');
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.salesOrder.update({
+        where: { id: order.id },
+        data: { status }
+      });
+
+      if (['CONFIRMED', 'WAITING_FOR_STOCK'].includes(status)) {
+        await processSalesOrderStockCheck(tx, order.id, req.user?.id, io);
+      }
+
+      return u;
     });
 
-    const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'salesOrder', action: 'update', data: updated });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'SALES',
+      title: `Sales Order ${updated.orderNumber || updated.id} Status Updated`,
+      message: `Status changed to ${status}`,
+      path: `/sales/${updated.id}`,
+      severity: status === 'CONFIRMED' ? 'INFO' : 'WARNING',
+      data: updated
+    });
 
     res.json({ success: true, data: updated, message: `Order status updated to ${status}` });
   } catch (err) {
@@ -215,4 +240,15 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-module.exports = { getAllSalesOrders, getSalesOrderById, createSalesOrder, updateOrderStatus };
+const getOrderAvailability = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const availability = await calculateOrderStockAvailability(prisma, id);
+    res.json({ success: true, data: availability });
+  } catch (err) {
+    console.error('getOrderAvailability error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+module.exports = { getAllSalesOrders, getSalesOrderById, createSalesOrder, updateOrderStatus, getOrderAvailability };

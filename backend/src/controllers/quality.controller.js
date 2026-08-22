@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
 
 const getAllInspections = async (req, res) => {
   try {
@@ -78,6 +79,16 @@ const createInspection = async (req, res) => {
       }
     });
 
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'QUALITY',
+      title: `Quality Inspection ${inspection.inspectionNumber} Created`,
+      message: `Pending quality check for ${inspection.inspectedQuantity} unit(s) of ${inspection.product?.name || 'Product'}`,
+      path: `/quality/${inspection.id}`,
+      severity: 'WARNING',
+      data: inspection
+    });
+
     res.status(201).json({ success: true, data: inspection, message: 'Quality inspection created' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
@@ -102,6 +113,16 @@ const submitInspectionResult = async (req, res) => {
         status,
         remarks
       }
+    });
+
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'QUALITY',
+      title: `Quality Audit Result: ${inspection.inspectionNumber} ${status}`,
+      message: `Passed: ${passed}, Defective/Failed: ${failed}`,
+      path: `/quality/${inspection.id}`,
+      severity: status === 'FAILED' ? 'CRITICAL' : (status === 'PARTIALLY_PASSED' ? 'WARNING' : 'INFO'),
+      data: inspection
     });
 
     res.json({ success: true, data: inspection, message: `Inspection marked as ${status}` });

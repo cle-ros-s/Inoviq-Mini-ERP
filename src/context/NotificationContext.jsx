@@ -2,12 +2,15 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useAuth } from './AuthContext.jsx';
 import { getNotifications, markRead, markAllRead, fetchSystemAttentionAlerts } from '../services/notificationService.js';
 import { useErpData } from './ErpDataContext.jsx';
+import { useUI } from './UIContext.jsx';
+import { getSocket } from '../services/socket.js';
 
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { currentUser } = useAuth();
   const { refreshCounter } = useErpData();
+  const { addToast } = useUI();
   const [notifications, setNotifications] = useState([]);
   const [readIds, setReadIds] = useState(new Set());
   const [isOpen, setIsOpen] = useState(false);
@@ -18,11 +21,22 @@ export function NotificationProvider({ children }) {
       return;
     }
     try {
-      const localNotifs = getNotifications(currentUser.userId);
+      const localNotifs = await getNotifications(currentUser.userId);
       const systemAlerts = await fetchSystemAttentionAlerts(currentUser.role);
       
-      const combined = [...systemAlerts, ...localNotifs];
-      setNotifications(combined);
+      setNotifications(prev => {
+        // Keep real-time notifications that haven't been fetched from backend system alerts
+        const rtOnly = prev.filter(n => n.id?.startsWith('notif-rt-'));
+        const combined = [...rtOnly, ...systemAlerts, ...localNotifs];
+        
+        // Remove duplicates by ID
+        const seen = new Set();
+        return combined.filter(n => {
+          if (seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        });
+      });
     } catch (e) {
       console.error('Error fetching notifications:', e);
     }
@@ -31,6 +45,41 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     refresh();
   }, [refresh, refreshCounter]);
+
+  // Socket.IO Subscription for Instant Real-Time Notifications & Toasts
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleNewNotification = (notif) => {
+      if (!notif || !notif.title) return;
+      console.log('⚡ Real-time notification received via Socket.IO:', notif);
+
+      // Prepend to notifications list
+      setNotifications(prev => [notif, ...prev.filter(n => n.id !== notif.id)]);
+
+      // Display real-time visual toast pop-up
+      const toastType = notif.severity === 'CRITICAL' ? 'error' : (notif.severity === 'WARNING' ? 'warning' : 'info');
+      addToast({
+        type: toastType,
+        message: `⚡ ${notif.title}: ${notif.message}`,
+        duration: 5000
+      });
+    };
+
+    const handleErpUpdate = (payload) => {
+      if (payload?.notification) {
+        handleNewNotification(payload.notification);
+      }
+    };
+
+    socket.on('notification:new', handleNewNotification);
+    socket.on('erp:update', handleErpUpdate);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+      socket.off('erp:update', handleErpUpdate);
+    };
+  }, [addToast]);
 
   const handleMarkRead = useCallback((id) => {
     setReadIds(prev => new Set(prev).add(id));

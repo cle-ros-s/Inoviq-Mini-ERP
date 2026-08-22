@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import * as bomService from '../../services/bomService.js';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import { useToast } from '../../hooks/useToast.js';
-import { ArrowLeft, FileText, Package } from 'lucide-react';
+import { ArrowLeft, FileText, Package, Edit } from 'lucide-react';
 
 export default function BomDetail() {
   const { id } = useParams();
@@ -53,6 +53,16 @@ export default function BomDetail() {
             </h1>
             <StatusBadge status={bom.status || 'ACTIVE'} />
           </div>
+        </div>
+
+        <div>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate(`/bom/${bom.id || id}/edit`)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Edit size={15} /> Edit BoM
+          </button>
         </div>
       </div>
 

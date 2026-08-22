@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 .vite/
+MINI- ERP/
 
 # Environment files
 .env

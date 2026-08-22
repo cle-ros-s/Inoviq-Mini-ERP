@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
+const { evaluateWaitingOrdersStockFulfillment } = require('../utils/stockAllocationEngine');
 
 const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -171,9 +173,14 @@ const createPurchaseOrder = async (req, res) => {
     });
 
     const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'purchaseOrder', action: 'create', data: createdPo });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'PROCUREMENT',
+      title: `Purchase Order ${createdPo.poNumber} Created`,
+      message: `Issued PO to supplier (Total: ₹${(createdPo.total || 0).toLocaleString()})`,
+      path: `/purchase/${createdPo.id}`,
+      severity: 'INFO',
+      data: createdPo
+    });
 
     res.status(201).json({ success: true, data: createdPo, message: 'Purchase order created successfully' });
   } catch (err) {
@@ -196,6 +203,8 @@ const receivePurchaseOrder = async (req, res) => {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'PO not found' } });
     }
 
+    const io = req.app.get('io');
+
     await prisma.$transaction(async (tx) => {
       // Create stock transactions for each item
       for (const item of po.items) {
@@ -215,12 +224,19 @@ const receivePurchaseOrder = async (req, res) => {
         where: { id: po.id },
         data: { status: 'RECEIVED' }
       });
+
+      // Transactionally check waiting orders and mark fulfillable ones ready
+      await evaluateWaitingOrdersStockFulfillment(tx, io, req.user?.id);
     });
 
-    const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'purchaseOrder', action: 'receive', data: po });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'PROCUREMENT',
+      title: `Purchase Order ${po.poNumber} Received`,
+      message: `Goods received into inventory stock.`,
+      path: `/purchase/${po.id}`,
+      severity: 'INFO',
+      data: po
+    });
 
     res.json({ success: true, message: 'Purchase order received and stock updated' });
   } catch (err) {

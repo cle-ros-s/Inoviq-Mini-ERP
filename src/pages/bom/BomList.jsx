@@ -6,7 +6,7 @@ import * as bomService from '../../services/bomService.js';
 import * as productService from '../../services/productService.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
-import { Eye } from 'lucide-react';
+import { Eye, Edit } from 'lucide-react';
 import { useToast } from '../../hooks/useToast.js';
 
 export default function BomList() {
@@ -26,6 +26,7 @@ export default function BomList() {
         const rawList = Array.isArray(data) ? data : (data?.data || []);
         const enriched = rawList.map(b => ({
           ...b,
+          rawId: b.id,
           id: b.bomNumber || b.id,
           productName: b.product?.name || b.productId || 'N/A',
           components: b.items || b.components || [],
@@ -52,13 +53,22 @@ export default function BomList() {
     {
       key: 'actions', label: 'Actions',
       render: (row) => (
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => navigate(`/bom/${row.id}`)}
-          title="View Details"
-        >
-          <Eye size={16} /> View
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate(`/bom/${row.rawId || row.id}`)}
+            title="View Details"
+          >
+            <Eye size={15} /> View
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate(`/bom/${row.rawId || row.id}/edit`)}
+            title="Edit BoM"
+          >
+            <Edit size={15} /> Edit
+          </button>
+        </div>
       )
     }
   ];

@@ -106,7 +106,47 @@ export async function fetchSystemAttentionAlerts(role = 'admin') {
   }
 }
 
-export function getNotifications(userId) {
+export async function fetchDbNotifications() {
+  try {
+    const res = await api.get('/notifications');
+    return res.data || res || [];
+  } catch (err) {
+    console.error('Failed to fetch notifications from backend:', err);
+    return [];
+  }
+}
+
+export async function markDbNotificationRead(id) {
+  try {
+    await api.patch(`/notifications/${id}/read`);
+  } catch (err) {
+    console.error(`Failed to mark notification ${id} as read:`, err);
+  }
+}
+
+export async function markDbAllRead() {
+  try {
+    await api.patch('/notifications/read-all');
+  } catch (err) {
+    console.error('Failed to mark all notifications as read:', err);
+  }
+}
+
+export async function fetchUnreadNotificationCount() {
+  try {
+    const res = await api.get('/notifications/unread-count');
+    return res.data?.unreadCount || 0;
+  } catch (err) {
+    console.error('Failed to fetch unread notification count:', err);
+    return 0;
+  }
+}
+
+export async function getNotifications(userId) {
+  const dbNotifs = await fetchDbNotifications();
+  if (Array.isArray(dbNotifs) && dbNotifs.length > 0) {
+    return dbNotifs;
+  }
   const all = getCollection('notifications') || [];
   const user = getCollection('users').find(u => u.id === userId);
   if (user && user.role === 'admin') {
@@ -116,16 +156,16 @@ export function getNotifications(userId) {
 }
 
 export function markRead(notificationId) {
+  markDbNotificationRead(notificationId);
   return updateItem('notifications', notificationId, { isRead: true });
 }
 
 export function markAllRead(userId) {
+  markDbAllRead();
   const notifications = getNotifications(userId);
-  notifications.forEach(n => {
-    if (!n.isRead) updateItem('notifications', n.id, { isRead: true });
-  });
-}
-
-export function getUnreadCount(userId) {
-  return getNotifications(userId).filter(n => !n.isRead).length;
+  if (Array.isArray(notifications)) {
+    notifications.forEach(n => {
+      if (!n.isRead) updateItem('notifications', n.id, { isRead: true });
+    });
+  }
 }

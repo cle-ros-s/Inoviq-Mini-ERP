@@ -73,18 +73,47 @@ try { app.use('/api/categories', require('./routes/categories.routes')); } catch
 try { app.use('/api/products', require('./routes/products.routes')); } catch(e) { console.warn('products routes not ready:', e.message); }
 try { app.use('/api/inventory', require('./routes/inventory.routes')); } catch(e) { console.warn('inventory routes not ready:', e.message); }
 try { app.use('/api/quotations', require('./routes/quotations.routes')); } catch(e) { console.warn('quotations routes not ready:', e.message); }
-try { app.use('/api/sales-orders', require('./routes/salesOrders.routes')); } catch(e) { console.warn('sales routes not ready:', e.message); }
-try { app.use('/api/boms', require('./routes/bom.routes')); } catch(e) { console.warn('bom routes not ready:', e.message); }
-try { app.use('/api/purchase-orders', require('./routes/purchaseOrders.routes')); } catch(e) { console.warn('purchase routes not ready:', e.message); }
+try {
+  const salesRoutes = require('./routes/salesOrders.routes');
+  app.use('/api/sales-orders', salesRoutes);
+  app.use('/api/sales', salesRoutes);
+} catch(e) { console.warn('sales routes not ready:', e.message); }
+
+try {
+  const bomRoutes = require('./routes/bom.routes');
+  app.use('/api/boms', bomRoutes);
+  app.use('/api/bom', bomRoutes);
+} catch(e) { console.warn('bom routes not ready:', e.message); }
+
+try {
+  const purchaseRoutes = require('./routes/purchaseOrders.routes');
+  app.use('/api/purchase-orders', purchaseRoutes);
+  app.use('/api/purchase', purchaseRoutes);
+} catch(e) { console.warn('purchase routes not ready:', e.message); }
+
 try { 
   const prodRoutes = require('./routes/production.routes');
   app.use('/api/production-orders', prodRoutes);
   app.use('/api/production', prodRoutes);
   app.use('/api/manufacturing-orders', prodRoutes);
+  app.use('/api/manufacturing', prodRoutes);
 } catch(e) { console.warn('production routes not ready:', e.message); }
+
 try { app.use('/api/quality', require('./routes/quality.routes')); } catch(e) { console.warn('quality routes not ready:', e.message); }
-try { app.use('/api/deliveries', require('./routes/deliveries.routes')); } catch(e) { console.warn('deliveries routes not ready:', e.message); }
-try { app.use('/api/invoices', require('./routes/invoices.routes')); } catch(e) { console.warn('invoices routes not ready:', e.message); }
+
+try {
+  const deliveryRoutes = require('./routes/deliveries.routes');
+  app.use('/api/deliveries', deliveryRoutes);
+  app.use('/api/delivery', deliveryRoutes);
+} catch(e) { console.warn('deliveries routes not ready:', e.message); }
+
+try {
+  const invoiceRoutes = require('./routes/invoices.routes');
+  app.use('/api/invoices', invoiceRoutes);
+  app.use('/api/finance', invoiceRoutes);
+} catch(e) { console.warn('invoices routes not ready:', e.message); }
+
+try { app.use('/api/notifications', require('./routes/notifications.routes')); } catch(e) { console.warn('notifications routes not ready:', e.message); }
 try { app.use('/api/dashboard', require('./routes/dashboard.routes')); } catch(e) { console.warn('dashboard routes not ready:', e.message); }
 
 // 404 handler

@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
+const { evaluateWaitingOrdersStockFulfillment } = require('../utils/stockAllocationEngine');
 
 const getAllProductionOrders = async (req, res) => {
   try {
@@ -86,9 +88,14 @@ const createProductionOrder = async (req, res) => {
     });
 
     const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'productionOrder', action: 'create', data: order });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'MANUFACTURING',
+      title: `Production Job ${order.productionNumber} Planned`,
+      message: `Planned ${order.plannedQuantity} unit(s) of ${order.product?.name || 'Finished Product'}`,
+      path: `/manufacturing/${order.id}`,
+      severity: 'INFO',
+      data: order
+    });
 
     res.status(201).json({ success: true, data: order, message: 'Production order created' });
   } catch (err) {
@@ -150,9 +157,14 @@ const startProduction = async (req, res) => {
     });
 
     const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'productionOrder', action: 'start', data: order });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'MANUFACTURING',
+      title: `Production Job ${order.productionNumber} In Progress`,
+      message: `Started production run for ${order.plannedQuantity} unit(s). Raw materials consumed.`,
+      path: `/manufacturing/${order.id}`,
+      severity: 'INFO',
+      data: order
+    });
 
     res.json({ success: true, message: 'Production started, raw materials consumed' });
   } catch (err) {
@@ -169,6 +181,8 @@ const completeProduction = async (req, res) => {
     if (order.status !== 'IN_PROGRESS') return res.status(400).json({ success: false, error: { code: 'INVALID_STATUS', message: 'Only IN_PROGRESS orders can be completed' } });
 
     const finalQty = parseInt(producedQuantity) || order.plannedQuantity;
+
+    const io = req.app.get('io');
 
     await prisma.$transaction(async (tx) => {
       // Add output finished goods to inventory
@@ -190,12 +204,20 @@ const completeProduction = async (req, res) => {
           producedQuantity: finalQty
         }
       });
+
+      // Transactionally check waiting orders and mark fulfillable ones ready
+      await evaluateWaitingOrdersStockFulfillment(tx, io, req.user?.id);
     });
 
     const io = req.app.get('io');
-    io?.emit('erp:update', { entity: 'productionOrder', action: 'complete', data: order });
-    io?.emit('dashboard:refresh');
-    io?.emit('data_updated');
+    emitRealtimeNotification(io, {
+      module: 'MANUFACTURING',
+      title: `Production Job ${order.productionNumber} Completed`,
+      message: `Completed ${finalQty} unit(s). Finished goods added to stock.`,
+      path: `/manufacturing/${order.id}`,
+      severity: 'INFO',
+      data: order
+    });
 
     res.json({ success: true, message: 'Production completed! Finished goods added to stock.' });
   } catch (err) {

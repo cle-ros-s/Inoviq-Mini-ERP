@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
+const { evaluateWaitingOrdersStockFulfillment } = require('../utils/stockAllocationEngine');
 
 const getInventoryOverview = async (req, res) => {
   try {
@@ -136,17 +138,35 @@ const receiveGoods = async (req, res) => {
       return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Valid product and quantity > 0 required' } });
     }
 
-    const tx = await prisma.inventoryTransaction.create({
-      data: {
-        productId,
-        quantity: parseInt(quantity),
-        transactionType: 'RECEIPT',
-        referenceType: referenceType || 'MANUAL_RECEIPT',
-        referenceId
-      }
+    const io = req.app.get('io');
+
+    const txRecord = await prisma.$transaction(async (tx) => {
+      const createdTx = await tx.inventoryTransaction.create({
+        data: {
+          productId,
+          quantity: parseInt(quantity),
+          transactionType: 'RECEIPT',
+          referenceType: referenceType || 'MANUAL_RECEIPT',
+          referenceId
+        },
+        include: { product: true }
+      });
+
+      await evaluateWaitingOrdersStockFulfillment(tx, io, req.user?.id);
+
+      return createdTx;
     });
 
-    res.status(201).json({ success: true, data: tx, message: 'Stock received successfully' });
+    emitRealtimeNotification(io, {
+      module: 'INVENTORY',
+      title: `Goods Received (${txRecord.quantity} units)`,
+      message: `Stock added for ${txRecord.product?.name || 'Item'}. Ref: ${txRecord.referenceId || 'Manual'}`,
+      path: `/inventory`,
+      severity: 'INFO',
+      data: txRecord
+    });
+
+    res.status(201).json({ success: true, data: txRecord, message: 'Stock received successfully' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -161,31 +181,51 @@ const adjustInventory = async (req, res) => {
 
     const transactionType = type === 'IN' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT';
 
-    // If OUT, check if enough stock
-    if (type === 'OUT') {
-      const history = await prisma.inventoryTransaction.findMany({ where: { productId } });
-      const currentStock = history.reduce((acc, t) => {
-        if (['RECEIPT', 'PRODUCTION_OUTPUT', 'ADJUSTMENT_IN'].includes(t.transactionType)) return acc + t.quantity;
-        if (['ISSUE', 'PRODUCTION_CONSUMPTION', 'ADJUSTMENT_OUT'].includes(t.transactionType)) return acc - t.quantity;
-        return acc;
-      }, 0);
+    const io = req.app.get('io');
 
-      if (currentStock < parseInt(quantity)) {
-        return res.status(400).json({ success: false, error: { code: 'INSUFFICIENT_STOCK', message: `Cannot adjust out ${quantity}. Available: ${currentStock}` } });
-      }
-    }
+    const txRecord = await prisma.$transaction(async (tx) => {
+      // If OUT, check if enough stock
+      if (type === 'OUT') {
+        const history = await tx.inventoryTransaction.findMany({ where: { productId } });
+        const currentStock = history.reduce((acc, t) => {
+          if (['RECEIPT', 'PRODUCTION_OUTPUT', 'ADJUSTMENT_IN'].includes(t.transactionType)) return acc + t.quantity;
+          if (['ISSUE', 'PRODUCTION_CONSUMPTION', 'ADJUSTMENT_OUT'].includes(t.transactionType)) return acc - t.quantity;
+          return acc;
+        }, 0);
 
-    const tx = await prisma.inventoryTransaction.create({
-      data: {
-        productId,
-        quantity: parseInt(quantity),
-        transactionType,
-        referenceType: 'MANUAL_ADJUSTMENT',
-        referenceId: reason || 'Stock Count Adjustment'
+        if (currentStock < parseInt(quantity)) {
+          throw new Error(`Cannot adjust out ${quantity}. Available: ${currentStock}`);
+        }
       }
+
+      const createdTx = await tx.inventoryTransaction.create({
+        data: {
+          productId,
+          quantity: parseInt(quantity),
+          transactionType,
+          referenceType: 'MANUAL_ADJUSTMENT',
+          referenceId: reason || 'Stock Count Adjustment'
+        },
+        include: { product: true }
+      });
+
+      if (type === 'IN') {
+        await evaluateWaitingOrdersStockFulfillment(tx, io, req.user?.id);
+      }
+
+      return createdTx;
     });
 
-    res.status(201).json({ success: true, data: tx, message: 'Stock adjusted successfully' });
+    emitRealtimeNotification(io, {
+      module: 'INVENTORY',
+      title: `Stock Adjustment (${type === 'IN' ? '+' : '-'}${txRecord.quantity})`,
+      message: `Adjusted inventory for ${txRecord.product?.name || 'Item'}. Reason: ${txRecord.referenceId}`,
+      path: `/inventory/ledger`,
+      severity: 'WARNING',
+      data: txRecord
+    });
+
+    res.status(201).json({ success: true, data: txRecord, message: 'Stock adjusted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }

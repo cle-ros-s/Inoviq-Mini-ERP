@@ -27,14 +27,22 @@ export default function InvoiceList() {
   };
 
   const columns = [
-    { key: 'id', label: 'ID' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'salesOrder', label: 'Sales Order' },
-    { key: 'amount', label: 'Amount', render: (val) => `$${parseFloat(val).toFixed(2)}` },
-    { key: 'paidAmount', label: 'Paid', render: (val) => `$${parseFloat(val || 0).toFixed(2)}` },
-    { key: 'balance', label: 'Balance', render: (val) => `$${parseFloat(val || 0).toFixed(2)}` },
-    { key: 'dueDate', label: 'Due Date', render: (val) => new Date(val).toLocaleDateString() },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> }
+    { key: 'invoiceNumber', label: 'Invoice #', render: (row) => row?.invoiceNumber || row?.id || '—' },
+    { key: 'customer', label: 'Customer', render: (row) => row?.customer?.companyName || row?.customer?.name || row?.customerName || '—' },
+    { key: 'salesOrder', label: 'Sales Order', render: (row) => row?.salesOrder?.orderNumber || (typeof row?.salesOrder === 'string' ? row.salesOrder : '—') },
+    { key: 'total', label: 'Amount', render: (row) => `₹${parseFloat(row?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
+    { key: 'paidAmount', label: 'Paid', render: (row) => {
+        const paid = (parseFloat(row?.total || 0) - parseFloat(row?.balanceDue || 0));
+        return `₹${Math.max(0, paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      }
+    },
+    { key: 'balanceDue', label: 'Balance', render: (row) => `₹${parseFloat(row?.balanceDue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
+    { key: 'dueDate', label: 'Due Date', render: (row) => {
+        const d = row?.createdAt || row?.dueDate;
+        return d ? new Date(d).toLocaleDateString() : '—';
+      }
+    },
+    { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row?.status || 'DRAFT'} /> }
   ];
 
   return (
@@ -46,7 +54,7 @@ export default function InvoiceList() {
         </div>
         <button 
           className="btn btn-primary" 
-          onClick={() => navigate('/finance/invoices/new')}
+          onClick={() => navigate('/finance/new')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           <Plus size={14} /> New Invoice
@@ -59,7 +67,7 @@ export default function InvoiceList() {
           <DataTable
             data={invoices}
             columns={columns}
-            onRowClick={(row) => navigate(`/finance/invoices/${row.id}`)}
+            onRowClick={(row) => navigate(`/finance/${row.id}`)}
           />
         )}
       </Card>

@@ -18,6 +18,7 @@ model User {
   updatedAt DateTime @updatedAt
   
   auditLogs AuditLog[]
+  notifications Notification[]
 }
 
 model Customer {
@@ -88,6 +89,7 @@ model Product {
   poItems             PurchaseOrderItem[]
   prodOrders          ProductionOrder[]
   qualityInspections  QualityInspection[]
+  notifications       Notification[]
 }
 
 model BOM {
@@ -169,6 +171,7 @@ model SalesOrder {
   items           SalesOrderItem[]
   deliveries      DeliveryOrder[]
   invoices        Invoice[]
+  notifications   Notification[]
 }
 
 model SalesOrderItem {
@@ -295,4 +298,26 @@ model AuditLog {
   entity      String
   entityId    String
   timestamp   DateTime @default(now())
+}
+
+model Notification {
+  id           String      @id @default(uuid())
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+  salesOrderId String?
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id])
+  quantity     Int?
+  type         String      @default("ORDER_READY")
+  category     String      @default("ATTENTION_REQUIRED")
+  module       String      @default("SALES")
+  title        String
+  message      String
+  path         String?
+  isRead       Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  readAt       DateTime?
+
+  @@unique([salesOrderId, type])
 }

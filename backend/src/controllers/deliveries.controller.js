@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
 
 const getAllDeliveries = async (req, res) => {
   try {
@@ -78,6 +79,16 @@ const createDelivery = async (req, res) => {
       }
     });
 
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'LOGISTICS',
+      title: `Delivery Dispatch ${delivery.deliveryNumber} Scheduled`,
+      message: `Scheduled shipment for customer ${delivery.customer?.companyName || 'Customer'}`,
+      path: `/delivery/${delivery.id}`,
+      severity: 'INFO',
+      data: delivery
+    });
+
     res.status(201).json({ success: true, data: delivery, message: 'Delivery scheduled' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
@@ -118,6 +129,16 @@ const updateDeliveryStatus = async (req, res) => {
         where: { id: delivery.id },
         data: { status }
       });
+    });
+
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'LOGISTICS',
+      title: `Shipment ${delivery.deliveryNumber} ${status}`,
+      message: status === 'DELIVERED' ? 'Delivery completed and customer order fulfilled.' : `Shipment status updated to ${status}`,
+      path: `/delivery/${delivery.id}`,
+      severity: 'INFO',
+      data: delivery
     });
 
     res.json({ success: true, message: `Delivery marked as ${status}` });

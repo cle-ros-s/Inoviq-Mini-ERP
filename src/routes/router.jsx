@@ -28,7 +28,8 @@ const ManufacturingNew = lazy(() => import('../pages/manufacturing/Manufacturing
 const ManufacturingDetail = lazy(() => import('../pages/manufacturing/ManufacturingDetail.jsx'));
 
 const BomList = lazy(() => import('../pages/bom/BomList.jsx'));
-const BomNew = lazy(() => import('../pages/bom/BomForm.jsx'));
+const BomForm = lazy(() => import('../pages/bom/BomForm.jsx'));
+const BomNew = BomForm;
 const BomDetail = lazy(() => import('../pages/bom/BomDetail.jsx'));
 
 const InventoryOverview = lazy(() => import('../pages/inventory/InventoryOverview.jsx'));
@@ -113,6 +114,7 @@ const router = createBrowserRouter([
       { path: 'bom', element: <RoleGuard module="bom" action="view">{withSuspense(BomList)}</RoleGuard> },
       { path: 'bom/new', element: <RoleGuard module="bom">{withSuspense(BomNew)}</RoleGuard> },
       { path: 'bom/:id', element: <RoleGuard module="bom" action="view">{withSuspense(BomDetail)}</RoleGuard> },
+      { path: 'bom/:id/edit', element: <RoleGuard module="bom">{withSuspense(BomForm)}</RoleGuard> },
 
       // Inventory
       { path: 'inventory', element: <RoleGuard module="inventory" action="view">{withSuspense(InventoryOverview)}</RoleGuard> },
@@ -135,7 +137,9 @@ const router = createBrowserRouter([
       // Finance / Invoices
       { path: 'finance', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceList)}</RoleGuard> },
       { path: 'finance/new', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceForm)}</RoleGuard> },
+      { path: 'finance/invoices/new', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceForm)}</RoleGuard> },
       { path: 'finance/:id', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceDetail)}</RoleGuard> },
+      { path: 'finance/invoices/:id', element: <RoleGuard module="finance" action="view">{withSuspense(InvoiceDetail)}</RoleGuard> },
 
       // Audit
       { path: 'audit-logs', element: <RoleGuard module="audit">{withSuspense(AuditLogs)}</RoleGuard> },

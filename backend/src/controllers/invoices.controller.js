@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { emitRealtimeNotification } = require('../utils/socketNotifier');
 
 const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
 
@@ -124,20 +125,31 @@ const createInvoice = async (req, res) => {
       }
     }
 
-    // Ensure target Sales Order exists
-    if (!targetSalesOrder) {
-      targetSalesOrder = await prisma.salesOrder.findFirst({
-        where: { customerId: targetCustomer.id }
-      });
-      if (!targetSalesOrder) {
-        targetSalesOrder = await prisma.salesOrder.findFirst();
-      }
-    }
-
     const count = await prisma.invoice.count();
     const invoiceNumber = `INV-${String(count + 1).padStart(6, '0')}`;
     const invoiceTotal = amount && !isNaN(parseFloat(amount)) ? parseFloat(amount) : (targetSalesOrder ? parseFloat(targetSalesOrder.total) : 10000);
     const invoiceStatus = (status || 'DRAFT').toUpperCase().replace(' ', '_');
+
+    // Ensure target Sales Order exists and is not null
+    if (!targetSalesOrder) {
+      targetSalesOrder = await prisma.salesOrder.findFirst({
+        where: { customerId: targetCustomer.id }
+      });
+    }
+
+    if (!targetSalesOrder) {
+      const soCount = await prisma.salesOrder.count();
+      const orderNumber = `SO-${String(soCount + 1).padStart(6, '0')}`;
+      targetSalesOrder = await prisma.salesOrder.create({
+        data: {
+          orderNumber,
+          customerId: targetCustomer.id,
+          status: 'CONFIRMED',
+          subtotal: invoiceTotal,
+          total: invoiceTotal
+        }
+      });
+    }
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -152,6 +164,16 @@ const createInvoice = async (req, res) => {
         customer: true,
         salesOrder: true
       }
+    });
+
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'FINANCE',
+      title: `Invoice ${invoice.invoiceNumber} Issued`,
+      message: `Invoice created for ${invoice.customer?.companyName || 'Customer'} (Total: ₹${(invoice.total || 0).toLocaleString()})`,
+      path: `/finance/${invoice.id}`,
+      severity: 'INFO',
+      data: invoice
     });
 
     res.status(201).json({ success: true, data: invoice, id: invoice.id, message: 'Invoice created successfully' });
@@ -202,6 +224,16 @@ const recordPayment = async (req, res) => {
       });
 
       return { payment, invoice: updatedInvoice };
+    });
+
+    const io = req.app.get('io');
+    emitRealtimeNotification(io, {
+      module: 'FINANCE',
+      title: `Payment Received: ₹${payAmount.toLocaleString()}`,
+      message: `Payment ${paymentNumber} recorded for Invoice ${invoice.invoiceNumber}`,
+      path: `/finance/${invoice.id}`,
+      severity: 'INFO',
+      data: result
     });
 
     res.status(201).json({ success: true, data: result, message: 'Payment recorded successfully' });

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllBOMs, getBOMById, createBOM, checkMaterialAvailability } = require('../controllers/bom.controller');
+const { getAllBOMs, getBOMById, createBOM, updateBOM, checkMaterialAvailability } = require('../controllers/bom.controller');
 const { authenticateUser } = require('../middlewares/auth');
 
 router.use(authenticateUser);
@@ -8,6 +8,8 @@ router.use(authenticateUser);
 router.get('/', getAllBOMs);
 router.get('/:id', getBOMById);
 router.post('/', createBOM);
+router.put('/:id', updateBOM);
+router.patch('/:id', updateBOM);
 router.get('/:id/availability', checkMaterialAvailability);
 
 module.exports = router;
