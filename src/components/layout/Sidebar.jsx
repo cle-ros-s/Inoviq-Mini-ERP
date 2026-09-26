@@ -6,7 +6,6 @@ import {
   LogOut, ChevronLeft, ChevronRight, Monitor, CheckSquare, MapPin, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import logoImg from '../../logo.png';
 
 const NAV_SECTIONS = [
   {
@@ -52,22 +51,13 @@ export default function Sidebar({ isCollapsed, onToggle }) {
   return (
     <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''}`}>
       {/* Logo / Brand */}
-      <div className="sidebar__brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <img
-          src={logoImg}
-          alt="Shiv Furniture Works Logo"
-          style={{
-            height: isCollapsed ? '30px' : '36px',
-            width: 'auto',
-            objectFit: 'contain',
-            borderRadius: '6px',
-            transition: 'all 0.2s'
-          }}
-        />
-        {!isCollapsed && (
-          <div className="sidebar__brand-full">
-            <span className="sidebar__brand-name" style={{ fontSize: '14px', fontWeight: 700 }}>Shiv Furniture Works</span>
-            <span className="sidebar__brand-sub" style={{ fontSize: '11px', color: 'var(--color-gray-500)' }}>Enterprise Mini ERP</span>
+      <div className="sidebar__brand">
+        {isCollapsed ? (
+          <img src="/logo.jpg" alt="SFW Logo" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
+        ) : (
+          <div className="sidebar__brand-full" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+            <img src="/logo.jpg" alt="Shiv Furniture Works Logo" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+            <span className="sidebar__brand-name" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Shiv Furniture Works</span>
           </div>
         )}
         <button
@@ -114,13 +104,13 @@ export default function Sidebar({ isCollapsed, onToggle }) {
         })}
       </nav>
 
-      {/* Bottom: Database Status + Logout */}
+      {/* Bottom: Demo Mode + Logout */}
       <div className="sidebar__footer">
         {!isCollapsed && (
-          <div className="sidebar__demo-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#059669' }}>
+          <div className="sidebar__demo-badge">
             <Monitor size={12} />
-            <span>PostgreSQL Live</span>
-            <span className="sidebar__demo-sub" style={{ color: '#047857' }}>Connected to Database</span>
+            <span>Demo Mode</span>
+            <span className="sidebar__demo-sub">Local Browser Storage</span>
           </div>
         )}
         <button
